@@ -1,6 +1,10 @@
 CREATE DATABASE IF NOT EXISTS devebook;
 USE devebook;
 
+DROP TABLE IF EXISTS pedidos_seguir;
+DROP TABLE IF EXISTS salvos;
+DROP TABLE IF EXISTS reacoes_mensagens;
+DROP TABLE IF EXISTS imagens_mensagens;
 DROP TABLE IF EXISTS notificacoes;
 DROP TABLE IF EXISTS redefinicoes_senha;
 DROP TABLE IF EXISTS curtidas_comentarios;
@@ -23,6 +27,7 @@ CREATE TABLE usuarios(
     email varchar(50) not null unique,
     senha varchar(555) not null,
     bio varchar(160) not null default '',
+    privado tinyint not null default 0,
     criadoEm timestamp default current_timestamp()
 )ENGINE=INNODB;
 
@@ -153,6 +158,8 @@ CREATE TABLE conversas(
     limpa_menor int not null default 0,
     limpa_maior int not null default 0,
     desculpa tinyint not null default 0,
+    silenciada_menor tinyint not null default 0,
+    silenciada_maior tinyint not null default 0,
     criadoEm timestamp default current_timestamp(),
     UNIQUE KEY uq_conversa (usuario_menor, usuario_maior),
     FOREIGN KEY (usuario_menor) REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -164,6 +171,7 @@ CREATE TABLE mensagens(
     conversa_id int not null,
     remetente_id int not null,
     texto varchar(1000) not null,
+    responde_a int null default null,
     lida boolean not null default false,
     criadoEm timestamp default current_timestamp(),
     INDEX idx_mensagens_conversa (conversa_id, id),
@@ -178,4 +186,39 @@ CREATE TABLE bloqueios(
     PRIMARY KEY (bloqueador_id, bloqueado_id),
     FOREIGN KEY (bloqueador_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (bloqueado_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE reacoes_mensagens(
+    mensagem_id int not null,
+    usuario_id int not null,
+    emoji varchar(16) not null,
+    criadoEm timestamp default current_timestamp(),
+    PRIMARY KEY (mensagem_id, usuario_id),
+    FOREIGN KEY (mensagem_id) REFERENCES mensagens(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE imagens_mensagens(
+    mensagem_id int not null primary key,
+    tipo varchar(30) not null,
+    dados mediumblob not null,
+    FOREIGN KEY (mensagem_id) REFERENCES mensagens(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE salvos(
+    usuario_id int not null,
+    publicacao_id int not null,
+    criadoEm timestamp default current_timestamp(),
+    PRIMARY KEY (usuario_id, publicacao_id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE pedidos_seguir(
+    solicitante_id int not null,
+    alvo_id int not null,
+    criadoEm timestamp default current_timestamp(),
+    PRIMARY KEY (solicitante_id, alvo_id),
+    FOREIGN KEY (solicitante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (alvo_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=INNODB;

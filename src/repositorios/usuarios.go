@@ -89,7 +89,7 @@ func (repositorio usuarios) Buscar(nomeOuNick string) ([]modelos.Usuario, error)
 // BuscarPorID traz um usuario do Banco de dados
 func (repositorio usuarios) BuscarPorID(ID uint64) (modelos.Usuario, error) {
 	linhas, erro := repositorio.db.Query(
-		`select u.id, u.nome, u.nick, u.email, u.bio, u.criadoEm, `+colunaFotoVersao+`,
+		`select u.id, u.nome, u.nick, u.email, u.bio, u.criadoEm, u.privado, `+colunaFotoVersao+`,
 		coalesce(b.preset, ''), cast(if(b.tipo is null, 0, unix_timestamp(b.atualizadoEm)) as unsigned)
 		from usuarios u left join fotos_usuarios f on f.usuario_id = u.id
 		left join banners_usuarios b on b.usuario_id = u.id
@@ -111,6 +111,7 @@ func (repositorio usuarios) BuscarPorID(ID uint64) (modelos.Usuario, error) {
 			&usuario.Email,
 			&usuario.Bio,
 			&usuario.CriadoEm,
+			&usuario.Privado,
 			&usuario.FotoVersao,
 			&usuario.BannerPreset,
 			&usuario.BannerVersao,
@@ -199,6 +200,11 @@ func (repositorio usuarios) PararDeSeguir(usuarioID, seguidorID uint64) error {
 		return erro
 	}
 	defer statement.Close()
+
+	// Também cancela um pedido de seguimento pendente
+	if erro = repositorio.CancelarPedido(usuarioID, seguidorID); erro != nil {
+		return erro
+	}
 
 	if _, erro = statement.Exec(usuarioID, seguidorID); erro != nil {
 		return erro

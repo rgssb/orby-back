@@ -77,6 +77,31 @@ func (repositorio Notificacoes) NotificarSeguidor(usuarioID, seguidorID uint64) 
 	return erro
 }
 
+// NotificarPedidoParaSeguir avisa o dono de um perfil privado sobre um novo pedido
+func (repositorio Notificacoes) NotificarPedidoParaSeguir(usuarioID, solicitanteID uint64) error {
+	_, erro := repositorio.db.Exec(`
+		insert into notificacoes (usuario_id, ator_id, tipo)
+		select ?, ?, ? from dual
+		where ? <> ? and not exists (
+			select 1 from notificacoes n
+			where n.usuario_id = ? and n.ator_id = ? and n.tipo = ?
+		)`,
+		usuarioID, solicitanteID, modelos.NotificacaoPedidoSeguir,
+		usuarioID, solicitanteID,
+		usuarioID, solicitanteID, modelos.NotificacaoPedidoSeguir,
+	)
+	return erro
+}
+
+// RemoverPedidoParaSeguir apaga o aviso do pedido (aceito, recusado ou cancelado)
+func (repositorio Notificacoes) RemoverPedidoParaSeguir(usuarioID, solicitanteID uint64) error {
+	_, erro := repositorio.db.Exec(
+		"delete from notificacoes where usuario_id = ? and ator_id = ? and tipo = ?",
+		usuarioID, solicitanteID, modelos.NotificacaoPedidoSeguir,
+	)
+	return erro
+}
+
 // RemoverSeguidor apaga o aviso quando o usuario deixa de seguir
 func (repositorio Notificacoes) RemoverSeguidor(usuarioID, seguidorID uint64) error {
 	_, erro := repositorio.db.Exec(

@@ -8,6 +8,9 @@ import (
 )
 
 // colunaTemImagem informa se a publicacao possui imagem anexada
+// postVisivel filtra publicações de perfis privados: só o dono e quem o segue as veem (usa o viewer duas vezes)
+const postVisivel = "(u.privado = 0 OR u.id = ? OR EXISTS (SELECT 1 FROM seguidores sx WHERE sx.usuario_id = u.id AND sx.seguidor_id = ?))"
+
 const colunaTemImagem = "exists(select 1 from imagens_publicacoes ip where ip.publicacao_id = p.id)"
 
 // Publicacoes representa um repositorio de publicacoes
@@ -81,22 +84,32 @@ func (repositorio Publicacoes) BuscarPorID(publicacaoID uint64) (modelos.Publica
 
 // Busca traz as publucacoes dos usuarios seguidos e tambem do proprio usuario que fez a requisicao
 // limite igual a zero traz todas; deslocamento pula as primeiras publicacoes (paginacao).
-func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
+func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64, aba, ordem string) ([]modelos.Publicacao, error) {
+	filtro := "(u.id = ? OR EXISTS (SELECT 1 FROM seguidores s WHERE s.usuario_id = p.autor_id AND s.seguidor_id = ?))"
+	argumentos := []interface{}{usuarioID, usuarioID, usuarioID, usuarioID}
+	if aba == "todos" {
+		filtro = postVisivel
+	}
+	// Os mais curtidos vêm primeiro; o ID desempata
+	ordenacao := "p.id DESC"
+	if ordem == "populares" {
+		ordenacao = "p.curtidas DESC, p.id DESC"
+	}
+
 	consulta := `
-		SELECT DISTINCT p.*, u.nick, ` + colunaFotoVersao + `,
+		SELECT p.*, u.nick, ` + colunaFotoVersao + `,
 			(SELECT COUNT(*) FROM comentarios c WHERE c.publicacao_id = p.id),
 			` + colunaTemImagem + `,
 			EXISTS (
 				SELECT 1 FROM curtidas_publicacoes cp
 				WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?
-			) AS curtido_por_usuario
+			) AS curtido_por_usuario,
+			EXISTS (SELECT 1 FROM salvos sv WHERE sv.publicacao_id = p.id AND sv.usuario_id = ?) AS salvo_por_usuario
 		FROM publicacoes p
 		INNER JOIN usuarios u ON u.id = p.autor_id
 		LEFT JOIN fotos_usuarios f ON f.usuario_id = u.id
-		LEFT JOIN seguidores s ON p.autor_id = s.usuario_id
-		WHERE u.id = ? OR s.seguidor_id = ?
-		ORDER BY 1 DESC`
-	argumentos := []interface{}{usuarioID, usuarioID, usuarioID}
+		WHERE ` + filtro + `
+		ORDER BY ` + ordenacao
 
 	if limite > 0 {
 		consulta += " LIMIT ? OFFSET ?"
@@ -130,6 +143,7 @@ func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64) ([
 			&publicacao.Comentarios,
 			&publicacao.TemImagem,
 			&publicacao.CurtidoPorUsuario,
+			&publicacao.SalvoPorUsuario,
 		); erro != nil {
 			return nil, erro
 		}
@@ -202,12 +216,13 @@ func (repositorio Publicacoes) BuscarPorUsuario(usuarioID, viewerID uint64) ([]m
 			EXISTS (
 				SELECT 1 FROM curtidas_publicacoes cp
 				WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?
-			) AS curtido_por_usuario
+			) AS curtido_por_usuario,
+			EXISTS (SELECT 1 FROM salvos sv WHERE sv.publicacao_id = p.id AND sv.usuario_id = ?) AS salvo_por_usuario
 		from publicacoes p
 		join usuarios u on u.id = p.autor_id
 		left join fotos_usuarios f on f.usuario_id = u.id
 		where p.autor_id = ?
-		order by p.id desc`, viewerID, usuarioID)
+		order by p.id desc`, viewerID, viewerID, usuarioID)
 
 	if erro != nil {
 		return nil, erro
@@ -234,6 +249,7 @@ func (repositorio Publicacoes) BuscarPorUsuario(usuarioID, viewerID uint64) ([]m
 			&publicacao.Comentarios,
 			&publicacao.TemImagem,
 			&publicacao.CurtidoPorUsuario,
+			&publicacao.SalvoPorUsuario,
 		); erro != nil {
 			return nil, erro
 		}
@@ -320,7 +336,7 @@ func (repositorio Publicacoes) alterarCurtida(publicacaoID, usuarioID uint64, cu
 // pela hashtag exata (#tag nao casa com #tagmaior).
 func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag bool, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
 	var filtro string
-	argumentos := []interface{}{viewerID}
+	argumentos := []interface{}{viewerID, viewerID}
 
 	if hashtag {
 		filtro = "(p.conteudo regexp ? or p.titulo regexp ?)"
@@ -331,7 +347,7 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 		padrao := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(termo) + "%"
 		argumentos = append(argumentos, padrao, padrao)
 	}
-	argumentos = append(argumentos, limite, deslocamento)
+	argumentos = append(argumentos, viewerID, viewerID, limite, deslocamento)
 
 	linhas, erro := repositorio.db.Query(`
 		select p.*, u.nick, `+colunaFotoVersao+`,
@@ -340,11 +356,12 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 			EXISTS (
 				SELECT 1 FROM curtidas_publicacoes cp
 				WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?
-			) AS curtido_por_usuario
+			) AS curtido_por_usuario,
+			EXISTS (SELECT 1 FROM salvos sv WHERE sv.publicacao_id = p.id AND sv.usuario_id = ?) AS salvo_por_usuario
 		from publicacoes p
 		join usuarios u on u.id = p.autor_id
 		left join fotos_usuarios f on f.usuario_id = u.id
-		where `+filtro+`
+		where `+filtro+` and `+postVisivel+`
 		order by p.id desc
 		limit ? offset ?`, argumentos...)
 	if erro != nil {
@@ -370,6 +387,7 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 			&publicacao.Comentarios,
 			&publicacao.TemImagem,
 			&publicacao.CurtidoPorUsuario,
+			&publicacao.SalvoPorUsuario,
 		); erro != nil {
 			return nil, erro
 		}

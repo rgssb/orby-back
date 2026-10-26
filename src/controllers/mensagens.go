@@ -39,9 +39,9 @@ func parametroDeMensagens(w http.ResponseWriter, r *http.Request, nome string) (
 
 func erroDeMensagem(w http.ResponseWriter, erro error) {
 	switch {
-	case errors.Is(erro, repositorios.ErrUsuarioInexistente):
+	case errors.Is(erro, repositorios.ErrUsuarioInexistente), errors.Is(erro, repositorios.ErrMensagemInexistente):
 		respostas.Erro(w, http.StatusNotFound, erro)
-	case errors.Is(erro, repositorios.ErrMensagemParaSiMesmo):
+	case errors.Is(erro, repositorios.ErrMensagemParaSiMesmo), errors.Is(erro, repositorios.ErrRespostaInvalida):
 		respostas.Erro(w, http.StatusBadRequest, erro)
 	case errors.Is(erro, repositorios.ErrAguardandoAceite), errors.Is(erro, repositorios.ErrBloqueado), errors.Is(erro, repositorios.ErrPedidoEncerrado):
 		respostas.Erro(w, http.StatusForbidden, erro)
@@ -101,6 +101,7 @@ func BuscarMensagens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	apos, _ := strconv.ParseUint(r.URL.Query().Get("apos"), 10, 64)
+	antes, _ := strconv.ParseUint(r.URL.Query().Get("antes"), 10, 64)
 
 	db, erro := banco.Conectar()
 	if erro != nil {
@@ -109,7 +110,7 @@ func BuscarMensagens(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	dialogo, erro := repositorios.NovoRepositorioDeMensagens(db).Abrir(eu, outro, apos)
+	dialogo, erro := repositorios.NovoRepositorioDeMensagens(db).Abrir(eu, outro, apos, antes)
 	if erro != nil {
 		erroDeMensagem(w, erro)
 		return
@@ -125,13 +126,21 @@ func EnviarMensagem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var corpo struct {
-		Texto string `json:"texto"`
+		Texto     string `json:"texto"`
+		RespondeA uint64 `json:"respondeA"`
+		ComImagem bool   `json:"comImagem"`
 	}
 	if erro := json.NewDecoder(r.Body).Decode(&corpo); erro != nil {
 		respostas.Erro(w, http.StatusBadRequest, errors.New("Corpo da requisição inválido"))
 		return
 	}
-	texto, erro := modelos.PrepararTexto(corpo.Texto)
+	var texto string
+	var erro error
+	if corpo.ComImagem {
+		texto, erro = modelos.PrepararTextoOpcional(corpo.Texto)
+	} else {
+		texto, erro = modelos.PrepararTexto(corpo.Texto)
+	}
 	if erro != nil {
 		respostas.Erro(w, http.StatusBadRequest, erro)
 		return
@@ -150,7 +159,7 @@ func EnviarMensagem(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	mensagem, erro := repositorios.NovoRepositorioDeMensagens(db).Enviar(eu, outro, strings.TrimSpace(texto))
+	mensagem, erro := repositorios.NovoRepositorioDeMensagens(db).Enviar(eu, outro, strings.TrimSpace(texto), corpo.RespondeA, corpo.ComImagem)
 	if erro != nil {
 		erroDeMensagem(w, erro)
 		return

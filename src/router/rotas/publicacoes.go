@@ -6,6 +6,9 @@ import (
 )
 
 var rotasPublicacoes = []Rota{
+	{URI: "/publicacoes/salvas", Metodo: http.MethodGet, Funcao: controllers.BuscarPublicacoesSalvas, RequerAutenticacao: true},
+	{URI: "/publicacoes/{publicacaoId}/salvar", Metodo: http.MethodPost, Funcao: controllers.SalvarPublicacao, RequerAutenticacao: true},
+	{URI: "/publicacoes/{publicacaoId}/salvar", Metodo: http.MethodDelete, Funcao: controllers.RemoverPublicacaoSalva, RequerAutenticacao: true},
 	{
 		URI:                "/publicacoes",
 		Metodo:             http.MethodPost,

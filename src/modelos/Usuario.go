@@ -23,6 +23,10 @@ type Usuario struct {
 	BannerPreset string    `json:"bannerPreset"`
 	BannerVersao uint64    `json:"bannerVersao"`
 	CriadoEm     time.Time `json:"criadoEm,omitempty"`
+	// Privado esconde as publicações de quem não segue; os dois campos seguintes dependem de quem visita o perfil
+	Privado            bool `json:"privado"`
+	PodeVerPublicacoes bool `json:"podeVerPublicacoes"`
+	PedidoEnviado      bool `json:"pedidoEnviado"`
 }
 
 // TamanhoMinimoSenha é a quantidade mínima de caracteres de uma senha

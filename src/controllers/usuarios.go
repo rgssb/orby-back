@@ -88,8 +88,19 @@ func BuscarUsuario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// O e-mail só é devolvido ao próprio usuário
-	if usuarioIDNoToken, erro := autenticacao.ExtrairUsuarioID(r); erro != nil || usuarioIDNoToken != usuarioID {
+	visitanteID, erro := autenticacao.ExtrairUsuarioID(r)
+	usuario.PodeVerPublicacoes = !usuario.Privado
+	if erro != nil || visitanteID != usuarioID {
 		usuario.Email = ""
+		if erro == nil {
+			_, segue, pedido, erro := repositorio.Privacidade(usuarioID, visitanteID)
+			if erro == nil {
+				usuario.PodeVerPublicacoes = usuario.PodeVerPublicacoes || segue
+				usuario.PedidoEnviado = pedido
+			}
+		}
+	} else {
+		usuario.PodeVerPublicacoes = true
 	}
 
 	respostas.JSON(w, http.StatusOK, usuario)
@@ -258,6 +269,23 @@ func SeguirUsuario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	repositorio := repositorios.NovoRepositorioDeUsuarios(db)
+	privado, segue, _, erro := repositorio.Privacidade(usuarioID, seguidorID)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	// Perfil privado: vira um pedido, que o dono precisa aceitar
+	if privado && !segue {
+		if erro = repositorio.PedirParaSeguir(usuarioID, seguidorID); erro != nil {
+			respostas.Erro(w, http.StatusInternalServerError, erro)
+			return
+		}
+		registrarNotificacao(db, func(n *repositorios.Notificacoes) error {
+			return n.NotificarPedidoParaSeguir(usuarioID, seguidorID)
+		})
+		respostas.JSON(w, http.StatusAccepted, map[string]bool{"pedido": true})
+		return
+	}
 	if erro = repositorio.Seguir(usuarioID, seguidorID); erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
@@ -303,6 +331,9 @@ func PararDeSeguirUsuario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	registrarNotificacao(db, func(n *repositorios.Notificacoes) error {
+		if erro := n.RemoverPedidoParaSeguir(usuarioID, seguidorID); erro != nil {
+			return erro
+		}
 		return n.RemoverSeguidor(usuarioID, seguidorID)
 	})
 

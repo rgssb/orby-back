@@ -9,6 +9,7 @@ const (
 	NotificacaoCurtidaComentario = "curtida_comentario"
 	NotificacaoMencao            = "mencao"
 	NotificacaoSeguidor          = "seguidor"
+	NotificacaoPedidoSeguir      = "pedido_seguir"
 )
 
 // Notificacao avisa o dono de uma publicação ou comentário sobre uma interação de outro usuário.

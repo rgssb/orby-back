@@ -17,7 +17,29 @@ type Mensagem struct {
 	Minha    bool      `json:"minha"`
 	Lida     bool      `json:"lida"`
 	CriadoEm time.Time `json:"criadoEm"`
+	// RespondeA é a mensagem citada; Reacoes agrupa os emojis recebidos
+	RespondeA *Citacao `json:"respondeA,omitempty"`
+	Reacoes   []Reacao `json:"reacoes"`
+	TemImagem bool     `json:"temImagem"`
 }
+
+// Citacao é o trecho de uma mensagem respondida
+type Citacao struct {
+	ID        uint64 `json:"id"`
+	Texto     string `json:"texto"`
+	Minha     bool   `json:"minha"`
+	TemImagem bool   `json:"temImagem"`
+}
+
+// Reacao é um emoji dado a uma mensagem, com o total e se eu fui uma das pessoas
+type Reacao struct {
+	Emoji string `json:"emoji"`
+	Total uint64 `json:"total"`
+	Minha bool   `json:"minha"`
+}
+
+// EmojisPermitidos são as reações disponíveis nas mensagens
+var EmojisPermitidos = map[string]bool{"👍": true, "❤️": true, "😂": true, "😮": true, "😢": true, "🙏": true}
 
 // Conversa resume a troca de mensagens entre o usuário autenticado e outra pessoa.
 // Solicitacao indica um pedido de conversa recebido (a outra pessoa não é seguida de volta)
@@ -37,6 +59,8 @@ type Conversa struct {
 	Bloqueei  bool `json:"bloqueei"`
 	Bloqueado bool `json:"bloqueado"`
 	Desculpa  bool `json:"desculpa"`
+	// Silenciada: não conta nas notificações de mensagens novas
+	Silenciada bool `json:"silenciada"`
 }
 
 // PrepararTexto valida e formata o texto de uma mensagem
@@ -51,8 +75,19 @@ func PrepararTexto(texto string) (string, error) {
 	return texto, nil
 }
 
+// PrepararTextoOpcional é como PrepararTexto, mas aceita texto vazio (mensagem só com imagem)
+func PrepararTextoOpcional(texto string) (string, error) {
+	texto = strings.TrimSpace(texto)
+	if texto == "" {
+		return "", nil
+	}
+	return PrepararTexto(texto)
+}
+
 // Dialogo é a conversa aberta com uma pessoa: o cabeçalho e as mensagens trocadas
 type Dialogo struct {
 	Conversa
 	Mensagens []Mensagem `json:"mensagens"`
+	// TemMais indica que há mensagens anteriores às listadas
+	TemMais bool `json:"temMais"`
 }

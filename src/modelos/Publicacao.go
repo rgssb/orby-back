@@ -18,6 +18,7 @@ type Publicacao struct {
 	Curtidas          uint64    `json:"curtidas"`
 	Comentarios       uint64    `json:"comentarios"`
 	CurtidoPorUsuario bool      `json:"curtidoPorUsuario"`
+	SalvoPorUsuario   bool      `json:"salvoPorUsuario"`
 	CriadaEm          time.Time `json:"criadaEm,omitempty"`
 	Editado           bool      `json:"editado"`
 	TemImagem         bool      `json:"temImagem"`

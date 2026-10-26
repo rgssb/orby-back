@@ -111,6 +111,41 @@ func Migrar() error {
 			FOREIGN KEY (bloqueado_id) REFERENCES usuarios(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
 
+		`CREATE TABLE IF NOT EXISTS reacoes_mensagens(
+			mensagem_id int not null,
+			usuario_id int not null,
+			emoji varchar(16) not null,
+			criadoEm timestamp default current_timestamp(),
+			PRIMARY KEY (mensagem_id, usuario_id),
+			FOREIGN KEY (mensagem_id) REFERENCES mensagens(id) ON DELETE CASCADE,
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+
+		`CREATE TABLE IF NOT EXISTS imagens_mensagens(
+			mensagem_id int not null primary key,
+			tipo varchar(30) not null,
+			dados mediumblob not null,
+			FOREIGN KEY (mensagem_id) REFERENCES mensagens(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+
+		`CREATE TABLE IF NOT EXISTS salvos(
+			usuario_id int not null,
+			publicacao_id int not null,
+			criadoEm timestamp default current_timestamp(),
+			PRIMARY KEY (usuario_id, publicacao_id),
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+
+		`CREATE TABLE IF NOT EXISTS pedidos_seguir(
+			solicitante_id int not null,
+			alvo_id int not null,
+			criadoEm timestamp default current_timestamp(),
+			PRIMARY KEY (solicitante_id, alvo_id),
+			FOREIGN KEY (solicitante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+			FOREIGN KEY (alvo_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+
 		`CREATE TABLE IF NOT EXISTS redefinicoes_senha(
 			id int auto_increment primary key,
 			usuario_id int not null,
@@ -137,6 +172,17 @@ func Migrar() error {
 		if erro = garantirColuna(db, "conversas", coluna, "int not null default 0"); erro != nil {
 			return erro
 		}
+	}
+	for _, coluna := range []string{"silenciada_menor", "silenciada_maior"} {
+		if erro = garantirColuna(db, "conversas", coluna, "tinyint not null default 0"); erro != nil {
+			return erro
+		}
+	}
+	if erro = garantirColuna(db, "mensagens", "responde_a", "int null default null"); erro != nil {
+		return erro
+	}
+	if erro = garantirColuna(db, "usuarios", "privado", "tinyint not null default 0"); erro != nil {
+		return erro
 	}
 	if erro = garantirColuna(db, "conversas", "desculpa", "tinyint not null default 0"); erro != nil {
 		return erro

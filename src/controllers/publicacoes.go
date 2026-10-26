@@ -87,7 +87,7 @@ func BuscarPublicacoes(w http.ResponseWriter, r *http.Request) {
 	}
 	deslocamento, _ := strconv.ParseUint(r.URL.Query().Get("deslocamento"), 10, 64)
 
-	publicacoes, erro := repositorio.Buscar(usuarioID, limite, deslocamento)
+	publicacoes, erro := repositorio.Buscar(usuarioID, limite, deslocamento, r.URL.Query().Get("aba"), r.URL.Query().Get("ordem"))
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
@@ -260,6 +260,18 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
+
+	if usuarioID != usuarioLogadoID {
+		privado, segue, _, erro := repositorios.NovoRepositorioDeUsuarios(db).Privacidade(usuarioID, usuarioLogadoID)
+		if erro != nil {
+			respostas.Erro(w, http.StatusInternalServerError, erro)
+			return
+		}
+		if privado && !segue {
+			respostas.JSON(w, http.StatusOK, []modelos.Publicacao{})
+			return
+		}
+	}
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
 	publicacoes, erro := repositorio.BuscarPorUsuario(usuarioID, usuarioLogadoID)
