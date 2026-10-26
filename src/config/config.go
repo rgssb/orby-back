@@ -5,11 +5,10 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
-
-
 
 var (
 	//StringConexaoBanco é a string de conexao com o Mysql
@@ -19,9 +18,20 @@ var (
 
 	//SecretKey é a chave que vai ser usada para assinar o token
 	SecretKey []byte
+
+	//FrontURL é o endereço público da aplicação web, usado nos links enviados por e-mail
+	FrontURL = "http://localhost:3000"
+
+	//SMTPHost, SMTPPorta, SMTPUsuario, SMTPSenha e SMTPRemetente configuram o envio de e-mail.
+	//Sem SMTPHost, o link de recuperação de senha é apenas escrito no terminal.
+	SMTPHost      = ""
+	SMTPPorta     = "587"
+	SMTPUsuario   = ""
+	SMTPSenha     = ""
+	SMTPRemetente = ""
 )
 
-//Carregar vai inicializar as variaveis de ambiente
+// Carregar vai inicializar as variaveis de ambiente
 func Carregar() {
 	var erro error
 
@@ -30,15 +40,29 @@ func Carregar() {
 	}
 
 	Porta, erro = strconv.Atoi(os.Getenv("API_PORT"))
-		if erro != nil {
-			Porta = 9000
-		}
+	if erro != nil {
+		Porta = 9000
+	}
 
-		StringConexaoBanco = fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=Local",
-			os.Getenv("DB_USUARIO"),
-			os.Getenv("DB_SENHA"),
-			os.Getenv("DB_NOME"),
+	StringConexaoBanco = fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=Local",
+		os.Getenv("DB_USUARIO"),
+		os.Getenv("DB_SENHA"),
+		os.Getenv("DB_NOME"),
 	)
 
 	SecretKey = []byte(os.Getenv("SECRET_KEY"))
+
+	if valor := os.Getenv("FRONT_URL"); valor != "" {
+		FrontURL = strings.TrimRight(valor, "/")
+	}
+	SMTPHost = os.Getenv("SMTP_HOST")
+	if valor := os.Getenv("SMTP_PORTA"); valor != "" {
+		SMTPPorta = valor
+	}
+	SMTPUsuario = os.Getenv("SMTP_USUARIO")
+	SMTPSenha = os.Getenv("SMTP_SENHA")
+	SMTPRemetente = os.Getenv("SMTP_REMETENTE")
+	if SMTPRemetente == "" {
+		SMTPRemetente = SMTPUsuario
+	}
 }

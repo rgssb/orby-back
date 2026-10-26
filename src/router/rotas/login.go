@@ -7,10 +7,8 @@ import (
 
 var rotalogin = Rota{
 
-	URI: "/login",
-	Metodo: http.MethodPost,
-	Funcao: controllers.Login,
+	URI:                "/login",
+	Metodo:             http.MethodPost,
+	Funcao:             controllers.Login,
 	RequerAutenticacao: false,
-
-
 }

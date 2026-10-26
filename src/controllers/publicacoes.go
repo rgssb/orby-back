@@ -58,6 +58,9 @@ func CriarPublicacoa(w http.ResponseWriter, r *http.Request) {
 	}
 
 	publicacao.ID = publicacaoID
+	registrarNotificacao(db, func(n *repositorios.Notificacoes) error {
+		return n.NotificarMencoes(publicacao.Conteudo, publicacaoID, 0, usuarioID)
+	})
 	respostas.JSON(w, http.StatusCreated, publicacao)
 
 }
@@ -74,14 +77,24 @@ func BuscarPublicacoes(w http.ResponseWriter, r *http.Request) {
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
-		}
-		defer db.Close()
+	}
+	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
-	publicacoes, erro := repositorio.Buscar(usuarioID)
+	limite, _ := strconv.ParseUint(r.URL.Query().Get("limite"), 10, 64)
+	if limite > 50 {
+		limite = 50
+	}
+	deslocamento, _ := strconv.ParseUint(r.URL.Query().Get("deslocamento"), 10, 64)
+
+	publicacoes, erro := repositorio.Buscar(usuarioID, limite, deslocamento)
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
+	}
+
+	if publicacoes == nil {
+		publicacoes = []modelos.Publicacao{}
 	}
 
 	respostas.JSON(w, http.StatusOK, publicacoes)
@@ -115,6 +128,10 @@ func BuscarPublicacoa(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if usuarioID, erro := autenticacao.ExtrairUsuarioID(r); erro == nil {
+		publicacao.CurtidoPorUsuario, _ = repositorio.CurtidaPor(publicacaoID, usuarioID)
+	}
+
 	respostas.JSON(w, http.StatusOK, publicacao)
 
 }
@@ -138,16 +155,16 @@ func AtualizarPublicacoa(w http.ResponseWriter, r *http.Request) {
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
-		}
-		defer db.Close()
+	}
+	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
 	publicacaoSalvaNoBanco, erro := repositorio.BuscarPorID(publicacaoID)
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
-		}
-		defer db.Close()
+	}
+	defer db.Close()
 
 	if publicacaoSalvaNoBanco.AutorID != usuarioID {
 		respostas.Erro(w, http.StatusForbidden, errors.New("Não é possivel alterar algo que não seja seu"))
@@ -198,16 +215,16 @@ func DeletarPublicacoa(w http.ResponseWriter, r *http.Request) {
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
-		}
-		defer db.Close()
+	}
+	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
 	publicacaoSalvaNoBanco, erro := repositorio.BuscarPorID(publicacaoID)
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
-		}
-		defer db.Close()
+	}
+	defer db.Close()
 
 	if publicacaoSalvaNoBanco.AutorID != usuarioID {
 		respostas.Erro(w, http.StatusForbidden, errors.New("Não é possivel apagar algo que não seja seu"))
@@ -222,8 +239,14 @@ func DeletarPublicacoa(w http.ResponseWriter, r *http.Request) {
 	respostas.JSON(w, http.StatusNoContent, nil)
 }
 
-//BuscarPublicacoesPorUsuario traz todas as publicacoes de um usuario especifico
+// BuscarPublicacoesPorUsuario traz todas as publicacoes de um usuario especifico
 func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
+	usuarioLogadoID, erro := autenticacao.ExtrairUsuarioID(r)
+	if erro != nil {
+		respostas.Erro(w, http.StatusUnauthorized, erro)
+		return
+	}
+
 	parametros := mux.Vars(r)
 	usuarioID, erro := strconv.ParseUint(parametros["usuarioId"], 10, 64)
 	if erro != nil {
@@ -239,7 +262,7 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
-	publicacoes, erro := repositorio.BuscarPorUsuario(usuarioID)
+	publicacoes, erro := repositorio.BuscarPorUsuario(usuarioID, usuarioLogadoID)
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
@@ -248,8 +271,14 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 	respostas.JSON(w, http.StatusOK, publicacoes)
 }
 
-//CurtirPublicacoa adiciona uma curtida na publicacao
+// CurtirPublicacoa adiciona uma curtida na publicacao
 func CurtirPublicacoa(w http.ResponseWriter, r *http.Request) {
+	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
+	if erro != nil {
+		respostas.Erro(w, http.StatusUnauthorized, erro)
+		return
+	}
+
 	parametros := mux.Vars(r)
 	publicacaoID, erro := strconv.ParseUint(parametros["publicacaoId"], 10, 64)
 	if erro != nil {
@@ -265,16 +294,26 @@ func CurtirPublicacoa(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
-	if erro = repositorio.Curtir(publicacaoID); erro != nil {
+	if erro = repositorio.Curtir(publicacaoID, usuarioID); erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
 	}
+
+	registrarNotificacao(db, func(n *repositorios.Notificacoes) error {
+		return n.NotificarCurtidaDePublicacao(publicacaoID, usuarioID)
+	})
 
 	respostas.JSON(w, http.StatusNoContent, nil)
 }
 
-//DescurtirPublicacao retira uma curtida na publicaca
+// DescurtirPublicacao retira uma curtida na publicaca
 func DescurtirPublicacoa(w http.ResponseWriter, r *http.Request) {
+	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
+	if erro != nil {
+		respostas.Erro(w, http.StatusUnauthorized, erro)
+		return
+	}
+
 	parametros := mux.Vars(r)
 	publicacaoID, erro := strconv.ParseUint(parametros["publicacaoId"], 10, 64)
 	if erro != nil {
@@ -290,10 +329,14 @@ func DescurtirPublicacoa(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
-	if erro = repositorio.Descurtir(publicacaoID); erro != nil {
+	if erro = repositorio.Descurtir(publicacaoID, usuarioID); erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
 	}
+
+	registrarNotificacao(db, func(n *repositorios.Notificacoes) error {
+		return n.RemoverCurtidaDePublicacao(publicacaoID, usuarioID)
+	})
 
 	respostas.JSON(w, http.StatusNoContent, nil)
 }

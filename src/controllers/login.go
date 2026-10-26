@@ -8,9 +8,11 @@ import (
 	"API/src/respostas"
 	"API/src/seguranca"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func Login(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +24,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	var usuario modelos.Usuario
 	if erro = json.Unmarshal(corpoRequisicao, &usuario); erro != nil {
-		respostas.Erro(w, http.StatusInternalServerError, erro)
+		respostas.Erro(w, http.StatusBadRequest, erro)
+		return
+	}
+
+	chaveDoLimitador := enderecoDoCliente(r) + "|" + strings.ToLower(strings.TrimSpace(usuario.Email))
+	if limitadorDeLogin.Bloqueado(chaveDoLimitador) {
+		respostas.Erro(w, http.StatusTooManyRequests, errors.New("Muitas tentativas de login. Aguarde alguns minutos e tente novamente"))
 		return
 	}
 
@@ -41,9 +49,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if erro = seguranca.VerificarSenha(usuarioSalvoNoBanco.Senha, usuario.Senha); erro != nil {
-		respostas.Erro(w, http.StatusUnauthorized, erro)
+		limitadorDeLogin.Registrar(chaveDoLimitador)
+		respostas.Erro(w, http.StatusUnauthorized, errors.New("E-mail ou senha incorretos"))
 		return
 	}
+	limitadorDeLogin.Reiniciar(chaveDoLimitador)
 
 	token, erro := autenticacao.CriarToken(usuarioSalvoNoBanco.ID)
 	if erro != nil {

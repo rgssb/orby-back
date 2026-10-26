@@ -1,6 +1,7 @@
 package main
 
 import (
+	"API/src/banco"
 	"API/src/config"
 	"API/src/router"
 	"fmt"
@@ -10,6 +11,10 @@ import (
 
 func main() {
 	config.Carregar()
+
+	if erro := banco.Migrar(); erro != nil {
+		log.Fatalf("erro ao preparar o banco de dados: %v", erro)
+	}
 
 	r := router.Gerar()
 

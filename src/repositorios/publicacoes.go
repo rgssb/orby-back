@@ -3,7 +3,12 @@ package repositorios
 import (
 	"API/src/modelos"
 	"database/sql"
+	"regexp"
+	"strings"
 )
+
+// colunaTemImagem informa se a publicacao possui imagem anexada
+const colunaTemImagem = "exists(select 1 from imagens_publicacoes ip where ip.publicacao_id = p.id)"
 
 // Publicacoes representa um repositorio de publicacoes
 type Publicacoes struct {
@@ -43,10 +48,14 @@ func (repositorio *Publicacoes) Criar(publicacao modelos.Publicacao) (uint64, er
 // BuscarPorID busca uma publicacao por ID
 func (repositorio Publicacoes) BuscarPorID(publicacaoID uint64) (modelos.Publicacao, error) {
 	var publicacao modelos.Publicacao
+	var editadaEm sql.NullTime
 	erro := repositorio.db.QueryRow(`
-		select p.*, u.nick from
-		publicacoes p inner join usuarios u
-		on u.id = p.autor_id where p.id = ?`,
+		select p.*, u.nick, `+colunaFotoVersao+`,
+			(select count(*) from comentarios c where c.publicacao_id = p.id),
+			`+colunaTemImagem+`
+		from publicacoes p inner join usuarios u on u.id = p.autor_id
+		left join fotos_usuarios f on f.usuario_id = u.id
+		where p.id = ?`,
 		publicacaoID,
 	).Scan(
 		&publicacao.ID,
@@ -55,27 +64,46 @@ func (repositorio Publicacoes) BuscarPorID(publicacaoID uint64) (modelos.Publica
 		&publicacao.AutorID,
 		&publicacao.Curtidas,
 		&publicacao.CriadaEm,
+		&editadaEm,
 		&publicacao.AutorNick,
+		&publicacao.AutorFotoVersao,
+		&publicacao.Comentarios,
+		&publicacao.TemImagem,
 	)
 	if erro != nil {
 		return modelos.Publicacao{}, erro
 	}
 
+	publicacao.Editado = editadaEm.Valid
 	return publicacao, nil
 
 }
 
 // Busca traz as publucacoes dos usuarios seguidos e tambem do proprio usuario que fez a requisicao
-func (repositorio Publicacoes) Buscar(usuarioID uint64) ([]modelos.Publicacao, error) {
-	linhas, erro := repositorio.db.Query(`
-		SELECT DISTINCT p.*, u.nick
+// limite igual a zero traz todas; deslocamento pula as primeiras publicacoes (paginacao).
+func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
+	consulta := `
+		SELECT DISTINCT p.*, u.nick, ` + colunaFotoVersao + `,
+			(SELECT COUNT(*) FROM comentarios c WHERE c.publicacao_id = p.id),
+			` + colunaTemImagem + `,
+			EXISTS (
+				SELECT 1 FROM curtidas_publicacoes cp
+				WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?
+			) AS curtido_por_usuario
 		FROM publicacoes p
 		INNER JOIN usuarios u ON u.id = p.autor_id
+		LEFT JOIN fotos_usuarios f ON f.usuario_id = u.id
 		LEFT JOIN seguidores s ON p.autor_id = s.usuario_id
 		WHERE u.id = ? OR s.seguidor_id = ?
-		order by 1 desc`,
-		usuarioID, usuarioID,
-	)
+		ORDER BY 1 DESC`
+	argumentos := []interface{}{usuarioID, usuarioID, usuarioID}
+
+	if limite > 0 {
+		consulta += " LIMIT ? OFFSET ?"
+		argumentos = append(argumentos, limite, deslocamento)
+	}
+
+	linhas, erro := repositorio.db.Query(consulta, argumentos...)
 
 	if erro != nil {
 		return nil, erro
@@ -87,6 +115,7 @@ func (repositorio Publicacoes) Buscar(usuarioID uint64) ([]modelos.Publicacao, e
 
 	for linhas.Next() {
 		var publicacao modelos.Publicacao
+		var editadaEm sql.NullTime
 
 		if erro = linhas.Scan(
 			&publicacao.ID,
@@ -95,11 +124,17 @@ func (repositorio Publicacoes) Buscar(usuarioID uint64) ([]modelos.Publicacao, e
 			&publicacao.AutorID,
 			&publicacao.Curtidas,
 			&publicacao.CriadaEm,
+			&editadaEm,
 			&publicacao.AutorNick,
+			&publicacao.AutorFotoVersao,
+			&publicacao.Comentarios,
+			&publicacao.TemImagem,
+			&publicacao.CurtidoPorUsuario,
 		); erro != nil {
 			return nil, erro
 		}
 
+		publicacao.Editado = editadaEm.Valid
 		publicacoes = append(publicacoes, publicacao)
 	}
 
@@ -110,10 +145,20 @@ func (repositorio Publicacoes) Buscar(usuarioID uint64) ([]modelos.Publicacao, e
 	return publicacoes, nil
 }
 
-//Atualizar altera a publicacao de um usuario
+// CurtidaPor informa se o usuario curtiu a publicacao
+func (repositorio Publicacoes) CurtidaPor(publicacaoID, usuarioID uint64) (bool, error) {
+	var curtida bool
+	erro := repositorio.db.QueryRow(
+		"select exists (select 1 from curtidas_publicacoes where publicacao_id = ? and usuario_id = ?)",
+		publicacaoID, usuarioID,
+	).Scan(&curtida)
+	return curtida, erro
+}
+
+// Atualizar altera a publicacao de um usuario
 func (repositorio Publicacoes) Atualizar(publicacaoID uint64, publicacao modelos.Publicacao) error {
 	statement, erro := repositorio.db.Prepare(
-		"update publicacoes set titulo = ?, conteudo = ? where id = ?",
+		"update publicacoes set titulo = ?, conteudo = ?, editadoEm = current_timestamp() where id = ?",
 	)
 
 	if erro != nil {
@@ -148,12 +193,21 @@ func (repositorio Publicacoes) Deletar(publicacaoID uint64) error {
 	return nil
 }
 
-//BuscarPorUsuario busca todas as publicacoes de um usuario no banco de dados
-func (repositorio Publicacoes) BuscarPorUsuario(usuarioID uint64) ([]modelos.Publicacao, error) {
+// BuscarPorUsuario busca todas as publicacoes de um usuario no banco de dados
+func (repositorio Publicacoes) BuscarPorUsuario(usuarioID, viewerID uint64) ([]modelos.Publicacao, error) {
 	linhas, erro := repositorio.db.Query(`
-		select p.*, u.nick from publicacoes p
+		select p.*, u.nick, `+colunaFotoVersao+`,
+			(select count(*) from comentarios c where c.publicacao_id = p.id),
+			`+colunaTemImagem+`,
+			EXISTS (
+				SELECT 1 FROM curtidas_publicacoes cp
+				WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?
+			) AS curtido_por_usuario
+		from publicacoes p
 		join usuarios u on u.id = p.autor_id
-		where p.autor_id = ?`, usuarioID)
+		left join fotos_usuarios f on f.usuario_id = u.id
+		where p.autor_id = ?
+		order by p.id desc`, viewerID, usuarioID)
 
 	if erro != nil {
 		return nil, erro
@@ -165,6 +219,7 @@ func (repositorio Publicacoes) BuscarPorUsuario(usuarioID uint64) ([]modelos.Pub
 
 	for linhas.Next() {
 		var publicacao modelos.Publicacao
+		var editadaEm sql.NullTime
 
 		if erro = linhas.Scan(
 			&publicacao.ID,
@@ -173,11 +228,17 @@ func (repositorio Publicacoes) BuscarPorUsuario(usuarioID uint64) ([]modelos.Pub
 			&publicacao.AutorID,
 			&publicacao.Curtidas,
 			&publicacao.CriadaEm,
+			&editadaEm,
 			&publicacao.AutorNick,
+			&publicacao.AutorFotoVersao,
+			&publicacao.Comentarios,
+			&publicacao.TemImagem,
+			&publicacao.CurtidoPorUsuario,
 		); erro != nil {
 			return nil, erro
 		}
 
+		publicacao.Editado = editadaEm.Valid
 		publicacoes = append(publicacoes, publicacao)
 	}
 
@@ -188,44 +249,159 @@ func (repositorio Publicacoes) BuscarPorUsuario(usuarioID uint64) ([]modelos.Pub
 	return publicacoes, nil
 }
 
-//Curtir adiciona uma curtida no poste de um usuario
-func (repositorio Publicacoes) Curtir(publicacaoID uint64) error {
-	statement, erro := repositorio.db.Prepare(
-		"update publicacoes set curtidas = curtidas + 1 where id = ?",
-	)
-
-	if erro != nil {
-		return erro
-	}
-
-	defer statement.Close()
-
-	if _, erro = statement.Exec(publicacaoID); erro != nil {
-		return erro
-	}
-
-	return nil
+// Curtir registra uma curtida do usuario e atualiza o total quando ela é nova.
+func (repositorio Publicacoes) Curtir(publicacaoID, usuarioID uint64) error {
+	return repositorio.alterarCurtida(publicacaoID, usuarioID, true)
 }
 
-//Descurtir retira uma curtida no poste de um usuario
-func (repositorio Publicacoes) Descurtir(publicacaoID uint64) error {
-	statement, erro := repositorio.db.Prepare(
-		`update publicacoes set curtidas =
-		CASE WHEN curtidas > 0 
-		THEN curtidas - 1
-		ELSE curtidas END
-		where id = ?`,
-	)
+// Descurtir remove a curtida do usuario e atualiza o total quando ela existia.
+func (repositorio Publicacoes) Descurtir(publicacaoID, usuarioID uint64) error {
+	return repositorio.alterarCurtida(publicacaoID, usuarioID, false)
+}
 
+func (repositorio Publicacoes) alterarCurtida(publicacaoID, usuarioID uint64, curtir bool) error {
+	transacao, erro := repositorio.db.Begin()
 	if erro != nil {
 		return erro
 	}
+	defer transacao.Rollback()
 
-	defer statement.Close()
-
-	if _, erro = statement.Exec(publicacaoID); erro != nil {
+	var id uint64
+	if erro = transacao.QueryRow(
+		"SELECT id FROM publicacoes WHERE id = ? FOR UPDATE",
+		publicacaoID,
+	).Scan(&id); erro != nil {
 		return erro
 	}
 
-	return nil
+	var curtidaExiste bool
+	if erro = transacao.QueryRow(
+		"SELECT EXISTS (SELECT 1 FROM curtidas_publicacoes WHERE publicacao_id = ? AND usuario_id = ?)",
+		publicacaoID,
+		usuarioID,
+	).Scan(&curtidaExiste); erro != nil {
+		return erro
+	}
+
+	if curtir && !curtidaExiste {
+		if _, erro = transacao.Exec(
+			"INSERT INTO curtidas_publicacoes (publicacao_id, usuario_id) VALUES (?, ?)",
+			publicacaoID,
+			usuarioID,
+		); erro != nil {
+			return erro
+		}
+		if _, erro = transacao.Exec(
+			"UPDATE publicacoes SET curtidas = curtidas + 1 WHERE id = ?",
+			publicacaoID,
+		); erro != nil {
+			return erro
+		}
+	} else if !curtir && curtidaExiste {
+		if _, erro = transacao.Exec(
+			"DELETE FROM curtidas_publicacoes WHERE publicacao_id = ? AND usuario_id = ?",
+			publicacaoID,
+			usuarioID,
+		); erro != nil {
+			return erro
+		}
+		if _, erro = transacao.Exec(
+			"UPDATE publicacoes SET curtidas = CASE WHEN curtidas > 0 THEN curtidas - 1 ELSE 0 END WHERE id = ?",
+			publicacaoID,
+		); erro != nil {
+			return erro
+		}
+	}
+
+	return transacao.Commit()
+}
+
+// Pesquisar procura publicacoes por texto (titulo ou conteudo) ou, quando hashtag e verdadeiro,
+// pela hashtag exata (#tag nao casa com #tagmaior).
+func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag bool, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
+	var filtro string
+	argumentos := []interface{}{viewerID}
+
+	if hashtag {
+		filtro = "(p.conteudo regexp ? or p.titulo regexp ?)"
+		expressao := `(^|[^[:alnum:]_])#` + regexp.QuoteMeta(termo) + `($|[^[:alnum:]_])`
+		argumentos = append(argumentos, expressao, expressao)
+	} else {
+		filtro = "(p.titulo like ? or p.conteudo like ?)"
+		padrao := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(termo) + "%"
+		argumentos = append(argumentos, padrao, padrao)
+	}
+	argumentos = append(argumentos, limite, deslocamento)
+
+	linhas, erro := repositorio.db.Query(`
+		select p.*, u.nick, `+colunaFotoVersao+`,
+			(select count(*) from comentarios c where c.publicacao_id = p.id),
+			`+colunaTemImagem+`,
+			EXISTS (
+				SELECT 1 FROM curtidas_publicacoes cp
+				WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?
+			) AS curtido_por_usuario
+		from publicacoes p
+		join usuarios u on u.id = p.autor_id
+		left join fotos_usuarios f on f.usuario_id = u.id
+		where `+filtro+`
+		order by p.id desc
+		limit ? offset ?`, argumentos...)
+	if erro != nil {
+		return nil, erro
+	}
+	defer linhas.Close()
+
+	publicacoes := []modelos.Publicacao{}
+	for linhas.Next() {
+		var publicacao modelos.Publicacao
+		var editadaEm sql.NullTime
+
+		if erro = linhas.Scan(
+			&publicacao.ID,
+			&publicacao.Titulo,
+			&publicacao.Conteudo,
+			&publicacao.AutorID,
+			&publicacao.Curtidas,
+			&publicacao.CriadaEm,
+			&editadaEm,
+			&publicacao.AutorNick,
+			&publicacao.AutorFotoVersao,
+			&publicacao.Comentarios,
+			&publicacao.TemImagem,
+			&publicacao.CurtidoPorUsuario,
+		); erro != nil {
+			return nil, erro
+		}
+
+		publicacao.Editado = editadaEm.Valid
+		publicacoes = append(publicacoes, publicacao)
+	}
+
+	return publicacoes, linhas.Err()
+}
+
+// SalvarImagem grava (ou troca) a imagem de uma publicacao
+func (repositorio Publicacoes) SalvarImagem(publicacaoID uint64, tipo string, dados []byte) error {
+	_, erro := repositorio.db.Exec(
+		"replace into imagens_publicacoes (publicacao_id, tipo, dados) values (?, ?, ?)",
+		publicacaoID, tipo, dados,
+	)
+	return erro
+}
+
+// BuscarImagem devolve o tipo e os bytes da imagem de uma publicacao
+func (repositorio Publicacoes) BuscarImagem(publicacaoID uint64) (string, []byte, error) {
+	var tipo string
+	var dados []byte
+	erro := repositorio.db.QueryRow(
+		"select tipo, dados from imagens_publicacoes where publicacao_id = ?", publicacaoID,
+	).Scan(&tipo, &dados)
+	return tipo, dados, erro
+}
+
+// RemoverImagem apaga a imagem de uma publicacao
+func (repositorio Publicacoes) RemoverImagem(publicacaoID uint64) error {
+	_, erro := repositorio.db.Exec("delete from imagens_publicacoes where publicacao_id = ?", publicacaoID)
+	return erro
 }

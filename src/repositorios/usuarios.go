@@ -11,6 +11,9 @@ type usuarios struct {
 	db *sql.DB
 }
 
+// colunaFotoVersao devolve o instante da última troca de foto (0 quando não há foto)
+const colunaFotoVersao = "cast(coalesce(unix_timestamp(f.atualizadoEm), 0) as unsigned)"
+
 // NovoRepositorioDeUsuarios cria um repositorio de usuarios
 func NovoRepositorioDeUsuarios(db *sql.DB) *usuarios {
 	return &usuarios{db}
@@ -49,7 +52,9 @@ func (repositorio usuarios) Buscar(nomeOuNick string) ([]modelos.Usuario, error)
 	nomeOuNick = fmt.Sprintf("%%%s%%", nomeOuNick)
 
 	linhas, erro := repositorio.db.Query(
-		"select id, nome, nick, email, criadoEm from usuarios where nome LIKE ? or nick LIKE ?",
+		`select u.id, u.nome, u.nick, u.bio, u.criadoEm, `+colunaFotoVersao+`
+		from usuarios u left join fotos_usuarios f on f.usuario_id = u.id
+		where u.nome LIKE ? or u.nick LIKE ?`,
 		nomeOuNick, nomeOuNick,
 	)
 	if erro != nil {
@@ -66,8 +71,9 @@ func (repositorio usuarios) Buscar(nomeOuNick string) ([]modelos.Usuario, error)
 			&usuario.ID,
 			&usuario.Nome,
 			&usuario.Nick,
-			&usuario.Email,
+			&usuario.Bio,
 			&usuario.CriadoEm,
+			&usuario.FotoVersao,
 		); erro != nil {
 			return nil, erro
 		}
@@ -83,7 +89,11 @@ func (repositorio usuarios) Buscar(nomeOuNick string) ([]modelos.Usuario, error)
 // BuscarPorID traz um usuario do Banco de dados
 func (repositorio usuarios) BuscarPorID(ID uint64) (modelos.Usuario, error) {
 	linhas, erro := repositorio.db.Query(
-		"select id, nome, nick, email, criadoEm from usuarios where id = ?",
+		`select u.id, u.nome, u.nick, u.email, u.bio, u.criadoEm, `+colunaFotoVersao+`,
+		coalesce(b.preset, ''), cast(if(b.tipo is null, 0, unix_timestamp(b.atualizadoEm)) as unsigned)
+		from usuarios u left join fotos_usuarios f on f.usuario_id = u.id
+		left join banners_usuarios b on b.usuario_id = u.id
+		where u.id = ?`,
 		ID,
 	)
 	if erro != nil {
@@ -99,7 +109,11 @@ func (repositorio usuarios) BuscarPorID(ID uint64) (modelos.Usuario, error) {
 			&usuario.Nome,
 			&usuario.Nick,
 			&usuario.Email,
+			&usuario.Bio,
 			&usuario.CriadoEm,
+			&usuario.FotoVersao,
+			&usuario.BannerPreset,
+			&usuario.BannerVersao,
 		); erro != nil {
 			return modelos.Usuario{}, erro
 		}
@@ -110,7 +124,7 @@ func (repositorio usuarios) BuscarPorID(ID uint64) (modelos.Usuario, error) {
 // Atualizar altera as informações no banco de dados
 func (repositorio usuarios) Atualizar(ID uint64, usuario modelos.Usuario) error {
 	statement, erro := repositorio.db.Prepare(
-		"update usuarios set nome = ?, nick = ?, email = ? where id = ?",
+		"update usuarios set nome = ?, nick = ?, email = ?, bio = ? where id = ?",
 	)
 	if erro != nil {
 		return erro
@@ -118,7 +132,7 @@ func (repositorio usuarios) Atualizar(ID uint64, usuario modelos.Usuario) error 
 
 	defer statement.Close()
 
-	if _, erro = statement.Exec(usuario.Nome, usuario.Nick, usuario.Email, ID); erro != nil {
+	if _, erro = statement.Exec(usuario.Nome, usuario.Nick, usuario.Email, usuario.Bio, ID); erro != nil {
 		return erro
 	}
 
@@ -196,9 +210,10 @@ func (repositorio usuarios) PararDeSeguir(usuarioID, seguidorID uint64) error {
 // BuscarSeguidores traz todos os seguidores de um usuario
 func (repositorio usuarios) BuscarSeguidores(usuarioID uint64) ([]modelos.Usuario, error) {
 	linhas, erro := repositorio.db.Query(`
-		select u.id, u.nome, u.nick, u.email, u.criadoEm
-		from usuarios u inner join seguidores s
-		on u.id = s.seguidor_id where s.usuario_id = ?`,
+		select u.id, u.nome, u.nick, u.criadoEm, `+colunaFotoVersao+`
+		from usuarios u inner join seguidores s on u.id = s.seguidor_id
+		left join fotos_usuarios f on f.usuario_id = u.id
+		where s.usuario_id = ?`,
 		usuarioID,
 	)
 	if erro != nil {
@@ -213,8 +228,8 @@ func (repositorio usuarios) BuscarSeguidores(usuarioID uint64) ([]modelos.Usuari
 			&usuario.ID,
 			&usuario.Nome,
 			&usuario.Nick,
-			&usuario.Email,
 			&usuario.CriadoEm,
+			&usuario.FotoVersao,
 		); erro != nil {
 			return nil, erro
 		}
@@ -227,8 +242,10 @@ func (repositorio usuarios) BuscarSeguidores(usuarioID uint64) ([]modelos.Usuari
 // BuscarSeguindo traz todos os seguidores que o usuario esta seguindo
 func (repositorio usuarios) BuscarSeguindo(usuarioID uint64) ([]modelos.Usuario, error) {
 	linhas, erro := repositorio.db.Query(`
-	select u.id, u.nome, u.nick, u.email, u.criadoEm 
-	from usuarios u inner join seguidores s on u.id = s.usuario_id where s.seguidor_id = ?`,
+	select u.id, u.nome, u.nick, u.criadoEm, `+colunaFotoVersao+`
+	from usuarios u inner join seguidores s on u.id = s.usuario_id
+	left join fotos_usuarios f on f.usuario_id = u.id
+	where s.seguidor_id = ?`,
 		usuarioID,
 	)
 	if erro != nil {
@@ -245,8 +262,8 @@ func (repositorio usuarios) BuscarSeguindo(usuarioID uint64) ([]modelos.Usuario,
 			&usuario.ID,
 			&usuario.Nome,
 			&usuario.Nick,
-			&usuario.Email,
 			&usuario.CriadoEm,
+			&usuario.FotoVersao,
 		); erro != nil {
 			return nil, erro
 		}
@@ -292,4 +309,46 @@ func (repositorio usuarios) AtualizarSenha(usuarioID uint64, senha string) error
 
 	return nil
 
+}
+
+// BuscarIDPorNick encontra o usuario de um @nick, ignorando espacos e maiusculas
+func (repositorio usuarios) BuscarIDPorNick(nick string) (uint64, error) {
+	var id uint64
+	erro := repositorio.db.QueryRow(
+		"select id from usuarios where replace(nick, ' ', '') = ? order by nick = ? desc limit 1",
+		nick, nick,
+	).Scan(&id)
+	return id, erro
+}
+
+// BuscarRelacionados traz quem o usuario segue ou quem o segue, cujo nick (sem espacos) comeca com o prefixo
+func (repositorio usuarios) BuscarRelacionados(usuarioID uint64, prefixo string, limite int) ([]modelos.Sugestao, error) {
+	linhas, erro := repositorio.db.Query(`
+		select u.id, u.nick, `+colunaFotoVersao+`
+		from usuarios u
+		left join fotos_usuarios f on f.usuario_id = u.id
+		where u.id <> ?
+		and (
+			u.id in (select usuario_id from seguidores where seguidor_id = ?)
+			or u.id in (select seguidor_id from seguidores where usuario_id = ?)
+		)
+		and replace(u.nick, ' ', '') like ?
+		order by u.nick
+		limit ?`, usuarioID, usuarioID, usuarioID, prefixo+"%", limite,
+	)
+	if erro != nil {
+		return nil, erro
+	}
+	defer linhas.Close()
+
+	sugestoes := []modelos.Sugestao{}
+	for linhas.Next() {
+		var s modelos.Sugestao
+		if erro = linhas.Scan(&s.ID, &s.Nick, &s.FotoVersao); erro != nil {
+			return nil, erro
+		}
+		sugestoes = append(sugestoes, s)
+	}
+
+	return sugestoes, linhas.Err()
 }

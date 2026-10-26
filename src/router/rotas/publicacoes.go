@@ -14,6 +14,35 @@ var rotasPublicacoes = []Rota{
 	},
 
 	{
+		URI:                "/publicacoes/busca",
+		Metodo:             http.MethodGet,
+		Funcao:             controllers.PesquisarPublicacoes,
+		RequerAutenticacao: true,
+	},
+
+	{
+		URI:                "/publicacoes/{publicacaoId}/imagem",
+		Metodo:             http.MethodGet,
+		Funcao:             controllers.BuscarImagemDaPublicacao,
+		RequerAutenticacao: true,
+	},
+
+	{
+		URI:                "/publicacoes/{publicacaoId}/imagem",
+		Metodo:             http.MethodPost,
+		Funcao:             controllers.SalvarImagemDaPublicacao,
+		RequerAutenticacao: true,
+		LimiteCorpo:        controllers.LimiteImagemPublicacao + 1024,
+	},
+
+	{
+		URI:                "/publicacoes/{publicacaoId}/imagem",
+		Metodo:             http.MethodDelete,
+		Funcao:             controllers.RemoverImagemDaPublicacao,
+		RequerAutenticacao: true,
+	},
+
+	{
 		URI:                "/publicacoes",
 		Metodo:             http.MethodGet,
 		Funcao:             controllers.BuscarPublicacoes,
@@ -40,7 +69,7 @@ var rotasPublicacoes = []Rota{
 		Funcao:             controllers.DeletarPublicacoa,
 		RequerAutenticacao: true,
 	},
-	
+
 	{
 		URI:                "/usuarios/{usuarioId}/publicacoes",
 		Metodo:             http.MethodGet,
@@ -53,7 +82,7 @@ var rotasPublicacoes = []Rota{
 		Funcao:             controllers.CurtirPublicacoa,
 		RequerAutenticacao: true,
 	},
-		{
+	{
 		URI:                "/publicacoes/{publicacaoId}/descurtir",
 		Metodo:             http.MethodPost,
 		Funcao:             controllers.DescurtirPublicacoa,
