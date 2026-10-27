@@ -1,10 +1,10 @@
 package repositorios
 
 import (
-	"orby/api/src/eventos"
-	"orby/api/src/modelos"
 	"database/sql"
 	"errors"
+	"orby/api/src/eventos"
+	"orby/api/src/modelos"
 )
 
 // Erros de regra de negócio das mensagens diretas

@@ -1,10 +1,10 @@
 package middlewares
 
 import (
-	"orby/api/src/autenticacao"
-	"orby/api/src/respostas"
 	"log"
 	"net/http"
+	"orby/api/src/autenticacao"
+	"orby/api/src/respostas"
 )
 
 // Logger escreve as informacoes da requisicao no terminal

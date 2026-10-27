@@ -1,9 +1,9 @@
 package repositorios
 
 import (
-	"orby/api/src/modelos"
 	"database/sql"
 	"fmt"
+	"orby/api/src/modelos"
 )
 
 // usuarios representa um repositorio de usuarios

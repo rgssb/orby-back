@@ -1,10 +1,10 @@
 package autenticacao
 
 import (
-	"orby/api/src/config"
 	"errors"
 	"fmt"
 	"net/http"
+	"orby/api/src/config"
 	"strconv"
 	"strings"
 	"time"

@@ -1,9 +1,9 @@
 package repositorios
 
 import (
-	"orby/api/src/modelos"
 	"database/sql"
 	"errors"
+	"orby/api/src/modelos"
 )
 
 // Salvar guarda uma publicação nos salvos do usuário
