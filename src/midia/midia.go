@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 )
 
 // Tipos de mídia; cada um vira uma pasta dentro de Dir
@@ -56,4 +57,28 @@ func Remover(tipo string, id uint64) error {
 		return erro
 	}
 	return nil
+}
+
+// Antigos lista os ids dos arquivos do tipo cuja última modificação é anterior a limite.
+// Nomes que não são números (como os temporários de Gravar) são ignorados.
+func Antigos(tipo string, limite time.Time) ([]uint64, error) {
+	entradas, erro := os.ReadDir(filepath.Join(Dir, tipo))
+	if os.IsNotExist(erro) {
+		return nil, nil
+	}
+	if erro != nil {
+		return nil, erro
+	}
+
+	var ids []uint64
+	for _, entrada := range entradas {
+		id, erro := strconv.ParseUint(entrada.Name(), 10, 64)
+		if erro != nil || entrada.IsDir() {
+			continue
+		}
+		if info, erro := entrada.Info(); erro == nil && info.ModTime().Before(limite) {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }

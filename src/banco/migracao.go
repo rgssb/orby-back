@@ -196,17 +196,18 @@ func Migrar() error {
 	return migrarMidia(db)
 }
 
+// tabelasDeMidia liga cada tipo de arquivo em disco à tabela que o registra
+var tabelasDeMidia = []struct{ tabela, chave, tipo string }{
+	{"fotos_usuarios", "usuario_id", midia.Fotos},
+	{"banners_usuarios", "usuario_id", midia.Banners},
+	{"imagens_publicacoes", "publicacao_id", midia.Publicacoes},
+	{"imagens_mensagens", "mensagem_id", midia.Mensagens},
+}
+
 // migrarMidia move para o disco as imagens que ainda estão em colunas "dados" (versões antigas)
 // e remove a coluna. Pode ser executada várias vezes.
 func migrarMidia(db *sql.DB) error {
-	tabelas := []struct{ tabela, chave, tipo string }{
-		{"fotos_usuarios", "usuario_id", midia.Fotos},
-		{"banners_usuarios", "usuario_id", midia.Banners},
-		{"imagens_publicacoes", "publicacao_id", midia.Publicacoes},
-		{"imagens_mensagens", "mensagem_id", midia.Mensagens},
-	}
-
-	for _, t := range tabelas {
+	for _, t := range tabelasDeMidia {
 		var existe int
 		if erro := db.QueryRow(
 			`select count(*) from information_schema.columns
