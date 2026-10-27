@@ -23,27 +23,16 @@ var rotasPublicacoes = []Rota{
 		RequerAutenticacao: true,
 	},
 
+	{URI: "/publicacoes/{publicacaoId}/imagem", Metodo: http.MethodGet, Funcao: controllers.BuscarImagemDaPublicacao, RequerAutenticacao: true},
+	{URI: "/publicacoes/{publicacaoId}/imagens/{posicao}", Metodo: http.MethodGet, Funcao: controllers.BuscarImagemDaPublicacao, RequerAutenticacao: true},
 	{
-		URI:                "/publicacoes/{publicacaoId}/imagem",
-		Metodo:             http.MethodGet,
-		Funcao:             controllers.BuscarImagemDaPublicacao,
-		RequerAutenticacao: true,
-	},
-
-	{
-		URI:                "/publicacoes/{publicacaoId}/imagem",
+		URI:                "/publicacoes/{publicacaoId}/imagens",
 		Metodo:             http.MethodPost,
-		Funcao:             controllers.SalvarImagemDaPublicacao,
+		Funcao:             controllers.AdicionarImagemDaPublicacao,
 		RequerAutenticacao: true,
 		LimiteCorpo:        controllers.LimiteImagemPublicacao + 1024,
 	},
-
-	{
-		URI:                "/publicacoes/{publicacaoId}/imagem",
-		Metodo:             http.MethodDelete,
-		Funcao:             controllers.RemoverImagemDaPublicacao,
-		RequerAutenticacao: true,
-	},
+	{URI: "/publicacoes/{publicacaoId}/imagens/{posicao}", Metodo: http.MethodDelete, Funcao: controllers.RemoverImagemDaPublicacao, RequerAutenticacao: true},
 
 	{
 		URI:                "/publicacoes",

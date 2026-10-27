@@ -66,6 +66,10 @@ func (repositorio Publicacoes) AnexarRepostagens(publicacoes []modelos.Publicaca
 	}
 	marcadores := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
 
+	if erro := repositorio.anexarImagens(publicacoes, posicoes, marcadores, ids); erro != nil {
+		return erro
+	}
+
 	linhas, erro := repositorio.db.Query(`
 		select r.original_id, count(*), coalesce(max(p.autor_id = ? and p.conteudo = ''), 0)
 		from reposts r inner join publicacoes p on p.id = r.publicacao_id
@@ -87,7 +91,8 @@ func (repositorio Publicacoes) AnexarRepostagens(publicacoes []modelos.Publicaca
 
 	linhas, erro = repositorio.db.Query(`
 		select r.publicacao_id, o.id, o.autor_id, u.nick, `+colunaFotoVersao+`, o.titulo, o.conteudo, o.criadoEm,
-			exists(select 1 from imagens_publicacoes ip where ip.publicacao_id = o.id),
+			(select count(*) from imagens_publicacoes where publicacao_id = o.id)
+				+ (select count(*) from imagens_extras_publicacoes where publicacao_id = o.id),
 			`+postVisivel+`
 		from reposts r
 		inner join publicacoes o on o.id = r.original_id
@@ -103,7 +108,7 @@ func (repositorio Publicacoes) AnexarRepostagens(publicacoes []modelos.Publicaca
 		var original modelos.PublicacaoOriginal
 		var visivel bool
 		if erro = linhas.Scan(&repostID, &original.ID, &original.AutorID, &original.AutorNick, &original.AutorFotoVersao,
-			&original.Titulo, &original.Conteudo, &original.CriadaEm, &original.TemImagem, &visivel); erro != nil {
+			&original.Titulo, &original.Conteudo, &original.CriadaEm, &original.Imagens, &visivel); erro != nil {
 			return erro
 		}
 		if !visivel {

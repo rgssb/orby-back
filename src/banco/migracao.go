@@ -83,6 +83,14 @@ func Migrar() error {
 			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
 
+		`CREATE TABLE IF NOT EXISTS imagens_extras_publicacoes(
+			id int auto_increment primary key,
+			publicacao_id int not null,
+			tipo varchar(30) not null,
+			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE,
+			INDEX idx_imagens_extras_publicacao (publicacao_id, id)
+		) ENGINE=INNODB`,
+
 		`CREATE TABLE IF NOT EXISTS conversas(
 			id int auto_increment primary key,
 			usuario_menor int not null,
@@ -304,6 +312,7 @@ var tabelasDeMidia = []struct{ tabela, chave, tipo string }{
 	{"fotos_usuarios", "usuario_id", midia.Fotos},
 	{"banners_usuarios", "usuario_id", midia.Banners},
 	{"imagens_publicacoes", "publicacao_id", midia.Publicacoes},
+	{"imagens_extras_publicacoes", "id", midia.Extras},
 	{"imagens_mensagens", "mensagem_id", midia.Mensagens},
 }
 

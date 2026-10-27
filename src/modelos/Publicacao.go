@@ -22,6 +22,7 @@ type Publicacao struct {
 	CriadaEm            time.Time           `json:"criadaEm,omitempty"`
 	Editado             bool                `json:"editado"`
 	TemImagem           bool                `json:"temImagem"`
+	Imagens             int                 `json:"imagens"`
 	Reposts             uint64              `json:"reposts"`
 	RepostadoPorUsuario bool                `json:"repostadoPorUsuario"`
 	RepostDe            *PublicacaoOriginal `json:"repostDe,omitempty"`
@@ -36,7 +37,7 @@ type PublicacaoOriginal struct {
 	Titulo          string    `json:"titulo,omitempty"`
 	Conteudo        string    `json:"conteudo,omitempty"`
 	CriadaEm        time.Time `json:"criadaEm,omitempty"`
-	TemImagem       bool      `json:"temImagem,omitempty"`
+	Imagens         int       `json:"imagens,omitempty"`
 	Indisponivel    bool      `json:"indisponivel,omitempty"`
 }
 

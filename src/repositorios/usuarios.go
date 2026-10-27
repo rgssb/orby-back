@@ -149,6 +149,11 @@ func (repositorio usuarios) Deletar(ID uint64) error {
 	if erro != nil {
 		return erro
 	}
+	imagensExtras, erro := repositorio.idsDeMidia(
+		"select ie.id from imagens_extras_publicacoes ie inner join publicacoes p on p.id = ie.publicacao_id where p.autor_id = ?", ID)
+	if erro != nil {
+		return erro
+	}
 	imagensDeMensagens, erro := repositorio.idsDeMidia(`
 		select im.mensagem_id from imagens_mensagens im
 		inner join mensagens m on m.id = im.mensagem_id
@@ -177,6 +182,9 @@ func (repositorio usuarios) Deletar(ID uint64) error {
 	// a conta já foi apagada; arquivo que não puder ser removido agora é recolhido pela limpeza periódica de órfãos
 	for _, id := range imagensDePublicacoes {
 		midia.Remover(midia.Publicacoes, id)
+	}
+	for _, id := range imagensExtras {
+		midia.Remover(midia.Extras, id)
 	}
 	for _, id := range imagensDeMensagens {
 		midia.Remover(midia.Mensagens, id)

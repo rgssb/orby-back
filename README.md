@@ -4,7 +4,7 @@ API do **Orby**, uma rede social pequena feita em Go + MySQL. O front fica em [`
 
 ## O que tem
 
-- Publicações com título opcional, imagem, comentários com respostas aninhadas (até 3 níveis) e menções (`@nick`)
+- Publicações com título opcional, até 4 imagens, comentários com respostas aninhadas (até 3 níveis) e menções (`@nick`)
 - Feeds **Seguindo**, **Explorar** e **Em alta** (curtidas + comentários dos últimos 7 dias, peso igual)
 - Salvos, curtidas, seguir e pedidos para seguir
 - Sugestões de quem seguir ("N pessoas que você segue seguem fulano")

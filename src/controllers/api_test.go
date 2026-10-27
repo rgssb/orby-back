@@ -125,6 +125,7 @@ func TestPublicacaoDePerfilPrivadoNaoVazaPelasRotas(t *testing.T) {
 		{http.MethodGet, "/publicacoes/" + id, ""},
 		{http.MethodGet, "/publicacoes/" + id + "/comentarios", ""},
 		{http.MethodGet, "/publicacoes/" + id + "/imagem", ""},
+		{http.MethodGet, "/publicacoes/" + id + "/imagens/1", ""},
 		{http.MethodGet, "/usuarios/" + strconv.FormatUint(dono, 10) + "/publicacoes", ""},
 	}
 	for _, l := range leituras {

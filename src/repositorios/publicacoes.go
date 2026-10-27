@@ -2,7 +2,6 @@ package repositorios
 
 import (
 	"database/sql"
-	"orby/api/src/midia"
 	"orby/api/src/modelos"
 	"regexp"
 	"strings"
@@ -195,6 +194,11 @@ func (repositorio Publicacoes) Atualizar(publicacaoID uint64, publicacao modelos
 
 // Deletar exclui uma publicacao do banco de dados
 func (repositorio Publicacoes) Deletar(publicacaoID uint64) error {
+	extras, erro := repositorio.idsDeImagensExtras(publicacaoID)
+	if erro != nil {
+		return erro
+	}
+
 	// os reposts não fazem sentido sem o original
 	if _, erro := repositorio.db.Exec("delete from publicacoes where id in (select publicacao_id from reposts where original_id = ?)", publicacaoID); erro != nil {
 		return erro
@@ -214,7 +218,7 @@ func (repositorio Publicacoes) Deletar(publicacaoID uint64) error {
 		return erro
 	}
 
-	return midia.Remover(midia.Publicacoes, publicacaoID)
+	return repositorio.removerArquivosDeImagens(publicacaoID, extras)
 }
 
 // BuscarPorUsuario busca todas as publicacoes de um usuario no banco de dados
@@ -413,38 +417,6 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 	}
 
 	return publicacoes, linhas.Err()
-}
-
-// SalvarImagem grava (ou troca) a imagem de uma publicacao
-func (repositorio Publicacoes) SalvarImagem(publicacaoID uint64, tipo string, dados []byte) error {
-	if erro := midia.Gravar(midia.Publicacoes, publicacaoID, dados); erro != nil {
-		return erro
-	}
-	_, erro := repositorio.db.Exec(
-		"replace into imagens_publicacoes (publicacao_id, tipo) values (?, ?)",
-		publicacaoID, tipo,
-	)
-	return erro
-}
-
-// BuscarImagem devolve o tipo e os bytes da imagem de uma publicacao
-func (repositorio Publicacoes) BuscarImagem(publicacaoID uint64) (string, []byte, error) {
-	var tipo string
-	if erro := repositorio.db.QueryRow(
-		"select tipo from imagens_publicacoes where publicacao_id = ?", publicacaoID,
-	).Scan(&tipo); erro != nil {
-		return "", nil, erro
-	}
-	dados, erro := lerMidia(midia.Publicacoes, publicacaoID)
-	return tipo, dados, erro
-}
-
-// RemoverImagem apaga a imagem de uma publicacao
-func (repositorio Publicacoes) RemoverImagem(publicacaoID uint64) error {
-	if _, erro := repositorio.db.Exec("delete from imagens_publicacoes where publicacao_id = ?", publicacaoID); erro != nil {
-		return erro
-	}
-	return midia.Remover(midia.Publicacoes, publicacaoID)
 }
 
 // PodeVer informa se o visitante pode ver a publicação (existe e o perfil é público, próprio ou seguido)

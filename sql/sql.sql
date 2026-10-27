@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS silenciados;
 DROP TABLE IF EXISTS bloqueios;
 DROP TABLE IF EXISTS conversas;
 DROP TABLE IF EXISTS banners_usuarios;
+DROP TABLE IF EXISTS imagens_extras_publicacoes;
 DROP TABLE IF EXISTS imagens_publicacoes;
 DROP TABLE IF EXISTS fotos_usuarios;
 DROP TABLE IF EXISTS curtidas_publicacoes;
@@ -157,6 +158,15 @@ CREATE TABLE imagens_publicacoes(
     publicacao_id int not null primary key,
     tipo varchar(30) not null,
     FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
+)ENGINE=INNODB;
+
+-- Da segunda imagem em diante; a primeira fica em imagens_publicacoes
+CREATE TABLE imagens_extras_publicacoes(
+    id int auto_increment primary key,
+    publicacao_id int not null,
+    tipo varchar(30) not null,
+    FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE,
+    INDEX idx_imagens_extras_publicacao (publicacao_id, id)
 )ENGINE=INNODB;
 
 CREATE TABLE banners_usuarios(

@@ -58,10 +58,10 @@ func TestExcluirPublicacaoApagaImagem(t *testing.T) {
 	publicacoes := NovoRepositorioDePublicacoes(db)
 	id, _ := publicacoes.Criar(modelos.Publicacao{Titulo: "t", Conteudo: "c", AutorID: autor})
 
-	if erro := publicacoes.SalvarImagem(id, "image/png", []byte("png")); erro != nil {
+	if erro := publicacoes.AdicionarImagem(id, "image/png", []byte("png")); erro != nil {
 		t.Fatal(erro)
 	}
-	if _, dados, erro := publicacoes.BuscarImagem(id); erro != nil || string(dados) != "png" {
+	if _, dados, erro := publicacoes.BuscarImagem(id, 0); erro != nil || string(dados) != "png" {
 		t.Fatalf("imagem: %q %v", dados, erro)
 	}
 	if erro := publicacoes.Deletar(id); erro != nil {
@@ -69,6 +69,67 @@ func TestExcluirPublicacaoApagaImagem(t *testing.T) {
 	}
 	if _, erro := midia.Ler(midia.Publicacoes, id); !os.IsNotExist(erro) {
 		t.Fatal("excluir a publicação deveria apagar a imagem")
+	}
+}
+
+func TestVariasImagensPorPublicacao(t *testing.T) {
+	db := testes.NovoBanco(t)
+	autor := testes.CriarUsuario(t, db, "a", false)
+	publicacoes := NovoRepositorioDePublicacoes(db)
+	id, _ := publicacoes.Criar(modelos.Publicacao{Titulo: "t", Conteudo: "c", AutorID: autor})
+
+	for _, nome := range []string{"um", "dois", "tres", "quatro"} {
+		if erro := publicacoes.AdicionarImagem(id, "image/png", []byte(nome)); erro != nil {
+			t.Fatal(erro)
+		}
+	}
+	if erro := publicacoes.AdicionarImagem(id, "image/png", []byte("cinco")); !errors.Is(erro, ErrLimiteDeImagens) {
+		t.Fatalf("a quinta imagem deveria ser recusada: %v", erro)
+	}
+
+	lista, _ := publicacoes.BuscarPorUsuario(autor, autor)
+	if len(lista) != 1 || lista[0].TemImagem != true {
+		t.Fatalf("publicação sem imagem na listagem: %+v", lista)
+	}
+	if erro := publicacoes.AnexarRepostagens(lista, autor); erro != nil || lista[0].Imagens != 4 {
+		t.Fatalf("total de imagens: %d %v", lista[0].Imagens, erro)
+	}
+
+	// remover a primeira promove a segunda
+	if erro := publicacoes.RemoverImagem(id, 0); erro != nil {
+		t.Fatal(erro)
+	}
+	for posicao, esperado := range []string{"dois", "tres", "quatro"} {
+		if _, dados, erro := publicacoes.BuscarImagem(id, posicao); erro != nil || string(dados) != esperado {
+			t.Fatalf("posição %d: %q %v", posicao, dados, erro)
+		}
+	}
+	if _, _, erro := publicacoes.BuscarImagem(id, 3); !errors.Is(erro, sql.ErrNoRows) {
+		t.Fatalf("não deveria haver quarta imagem: %v", erro)
+	}
+
+	if erro := publicacoes.RemoverImagem(id, 1); erro != nil {
+		t.Fatal(erro)
+	}
+	if _, dados, _ := publicacoes.BuscarImagem(id, 1); string(dados) != "quatro" {
+		t.Fatalf("a imagem seguinte deveria subir: %q", dados)
+	}
+
+	var extras []uint64
+	linhas, _ := db.Query("select id from imagens_extras_publicacoes")
+	for linhas.Next() {
+		var extra uint64
+		linhas.Scan(&extra)
+		extras = append(extras, extra)
+	}
+	linhas.Close()
+	if erro := publicacoes.Deletar(id); erro != nil {
+		t.Fatal(erro)
+	}
+	for _, extra := range extras {
+		if _, erro := midia.Ler(midia.Extras, extra); !os.IsNotExist(erro) {
+			t.Fatal("excluir a publicação deveria apagar as imagens extras")
+		}
 	}
 }
 
