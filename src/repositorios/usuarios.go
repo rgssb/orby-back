@@ -141,20 +141,55 @@ func (repositorio usuarios) Atualizar(ID uint64, usuario modelos.Usuario) error 
 	return nil
 }
 
-// Deletar deleta um usuario do banco de dados
+// Deletar apaga a conta e tudo que depende dela (publicações, comentários, conversas...) e, em seguida,
+// os arquivos de mídia que ficaram sem registro: foto, banner, imagens das publicações e das mensagens.
 func (repositorio usuarios) Deletar(ID uint64) error {
-	statement, erro := repositorio.db.Prepare("delete from usuarios where id = ?")
+	imagensDePublicacoes, erro := repositorio.idsDeMidia(
+		"select publicacao_id from imagens_publicacoes ip inner join publicacoes p on p.id = ip.publicacao_id where p.autor_id = ?", ID)
 	if erro != nil {
 		return erro
 	}
-	defer statement.Close()
-
-	if _, erro = statement.Exec(ID); erro != nil {
+	imagensDeMensagens, erro := repositorio.idsDeMidia(`
+		select im.mensagem_id from imagens_mensagens im
+		inner join mensagens m on m.id = im.mensagem_id
+		inner join conversas c on c.id = m.conversa_id
+		where c.usuario_menor = ? or c.usuario_maior = ?`, ID, ID)
+	if erro != nil {
 		return erro
 	}
 
+	if _, erro = repositorio.db.Exec("delete from usuarios where id = ?", ID); erro != nil {
+		return erro
+	}
+
+	// a conta já foi apagada; arquivo que não puder ser removido agora é recolhido pela limpeza periódica de órfãos
+	for _, id := range imagensDePublicacoes {
+		midia.Remover(midia.Publicacoes, id)
+	}
+	for _, id := range imagensDeMensagens {
+		midia.Remover(midia.Mensagens, id)
+	}
 	midia.Remover(midia.Fotos, ID)
-	return midia.Remover(midia.Banners, ID)
+	midia.Remover(midia.Banners, ID)
+	return nil
+}
+
+func (repositorio usuarios) idsDeMidia(consulta string, argumentos ...interface{}) ([]uint64, error) {
+	linhas, erro := repositorio.db.Query(consulta, argumentos...)
+	if erro != nil {
+		return nil, erro
+	}
+	defer linhas.Close()
+
+	var ids []uint64
+	for linhas.Next() {
+		var id uint64
+		if erro = linhas.Scan(&id); erro != nil {
+			return nil, erro
+		}
+		ids = append(ids, id)
+	}
+	return ids, linhas.Err()
 }
 
 // BuscarPorEmail busca um usuario por email e retorna seu id e senha com hash

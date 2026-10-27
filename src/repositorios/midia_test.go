@@ -99,3 +99,37 @@ func TestMigrarMidiaMoveBlobsParaDisco(t *testing.T) {
 		t.Fatal("a coluna dados deveria ter sido removida")
 	}
 }
+
+func TestExcluirContaApagaTodasAsMidias(t *testing.T) {
+	db := testes.NovoBanco(t)
+	autor := testes.CriarUsuario(t, db, "a", false)
+	outro := testes.CriarUsuario(t, db, "b", false)
+
+	publicacaoID, _ := NovoRepositorioDePublicacoes(db).Criar(modelos.Publicacao{Titulo: "t", Conteudo: "c", AutorID: autor})
+	db.Exec("insert into imagens_publicacoes (publicacao_id, tipo) values (?, 'image/png')", publicacaoID)
+	midia.Gravar(midia.Publicacoes, publicacaoID, []byte("p"))
+
+	menor, maior := ordenar(autor, outro)
+	conversa, _ := db.Exec("insert into conversas (usuario_menor, usuario_maior, iniciada_por, aceita) values (?, ?, ?, true)", menor, maior, autor)
+	conversaID, _ := conversa.LastInsertId()
+	mensagem, _ := db.Exec("insert into mensagens (conversa_id, remetente_id, texto) values (?, ?, '')", conversaID, outro)
+	mensagemID, _ := mensagem.LastInsertId()
+	db.Exec("insert into imagens_mensagens (mensagem_id, tipo) values (?, 'image/png')", mensagemID)
+	midia.Gravar(midia.Mensagens, uint64(mensagemID), []byte("m"))
+
+	usuarios := NovoRepositorioDeUsuarios(db)
+	usuarios.SalvarFoto(autor, "image/png", []byte("f"))
+
+	if erro := usuarios.Deletar(autor); erro != nil {
+		t.Fatal(erro)
+	}
+	for tipo, id := range map[string]uint64{
+		midia.Publicacoes: publicacaoID,
+		midia.Mensagens:   uint64(mensagemID),
+		midia.Fotos:       autor,
+	} {
+		if _, erro := midia.Ler(tipo, id); !os.IsNotExist(erro) {
+			t.Errorf("o arquivo de %s sobreviveu à exclusão da conta", tipo)
+		}
+	}
+}
