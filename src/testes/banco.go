@@ -2,6 +2,7 @@
 package testes
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"path/filepath"
@@ -39,6 +40,20 @@ func NovoBanco(t *testing.T) *sql.DB {
 		t.Fatal(erro)
 	}
 	t.Cleanup(func() { db.Close() })
+
+	// Pacotes de teste rodam em paralelo e dividem o mesmo banco; o lock serializa os testes
+	trava, erro := db.Conn(context.Background())
+	if erro != nil {
+		t.Fatal(erro)
+	}
+	var obtido int
+	if erro = trava.QueryRowContext(context.Background(), "select get_lock('orby_testes', 120)").Scan(&obtido); erro != nil || obtido != 1 {
+		t.Fatalf("não foi possível obter o lock dos testes: %v", erro)
+	}
+	t.Cleanup(func() {
+		trava.ExecContext(context.Background(), "select release_lock('orby_testes')")
+		trava.Close()
+	})
 	midia.Dir = t.TempDir()
 	config.StringConexaoBanco = cfg.FormatDSN()
 	config.SecretKey = []byte("segredo-de-teste")
