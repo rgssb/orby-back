@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS curtidas_comentarios;
 DROP TABLE IF EXISTS comentarios;
 DROP TABLE IF EXISTS mensagens;
 DROP TABLE IF EXISTS reposts;
+DROP TABLE IF EXISTS denuncias;
 DROP TABLE IF EXISTS silenciados;
 DROP TABLE IF EXISTS bloqueios;
 DROP TABLE IF EXISTS conversas;
@@ -36,6 +37,7 @@ CREATE TABLE usuarios(
     senha varchar(555) not null,
     bio varchar(160) not null default '',
     privado tinyint not null default 0,
+    admin tinyint not null default 0,
     termos_aceitos_em timestamp null default null,
     email_verificado_em timestamp null default null,
     criadoEm timestamp default current_timestamp()
@@ -235,6 +237,21 @@ CREATE TABLE silenciados(
     PRIMARY KEY (silenciador_id, silenciado_id),
     FOREIGN KEY (silenciador_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (silenciado_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE denuncias(
+    id int auto_increment primary key,
+    denunciante_id int not null,
+    dono_id int not null,
+    tipo varchar(12) not null,
+    alvo_id int not null,
+    motivo varchar(20) not null,
+    resolvida tinyint not null default 0,
+    criadoEm timestamp default current_timestamp(),
+    UNIQUE KEY uq_denuncia (denunciante_id, tipo, alvo_id),
+    INDEX idx_denuncias_dono (dono_id, resolvida),
+    FOREIGN KEY (denunciante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (dono_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=INNODB;
 
 CREATE TABLE grupos(

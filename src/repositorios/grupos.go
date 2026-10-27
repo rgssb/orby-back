@@ -520,3 +520,14 @@ func (repositorio Grupos) Candidatos(eu uint64, busca string) ([]modelos.PessoaP
 	}
 	return pessoas, linhas.Err()
 }
+
+// ContarNaoLidas soma as mensagens de grupo que a pessoa ainda não viu
+func (repositorio Grupos) ContarNaoLidas(eu uint64) (total uint64, erro error) {
+	erro = repositorio.db.QueryRow(`
+		select coalesce(sum((
+			select count(*) from grupo_mensagens n
+			where n.grupo_id = m.grupo_id and n.id > m.lida_ate and n.remetente_id <> ?
+		)), 0)
+		from grupo_membros m where m.usuario_id = ?`, eu, eu).Scan(&total)
+	return
+}

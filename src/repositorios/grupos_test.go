@@ -188,3 +188,23 @@ func TestGruposCandidatosEFoto(t *testing.T) {
 		t.Fatal(erro)
 	}
 }
+
+func TestGruposContarNaoLidas(t *testing.T) {
+	db := testes.NovoBanco(t)
+	ana := testes.CriarUsuario(t, db, "ana", false)
+	beto := testes.CriarUsuario(t, db, "beto", false)
+	repo := NovoRepositorioDeGrupos(db)
+	id, erro := repo.Criar(ana, "Amigos", []uint64{beto})
+	if erro != nil {
+		t.Fatal(erro)
+	}
+	if _, erro = repo.Enviar(ana, id, "oi"); erro != nil {
+		t.Fatal(erro)
+	}
+	if n, _ := repo.ContarNaoLidas(beto); n != 1 {
+		t.Fatalf("beto deveria ter 1 não lida, tem %d", n)
+	}
+	if n, _ := repo.ContarNaoLidas(ana); n != 0 {
+		t.Fatalf("ana não conta a própria mensagem, tem %d", n)
+	}
+}

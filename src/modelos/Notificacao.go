@@ -12,6 +12,8 @@ const (
 	NotificacaoMencao            = "mencao"
 	NotificacaoSeguidor          = "seguidor"
 	NotificacaoPedidoSeguir      = "pedido_seguir"
+	NotificacaoPerfilEmAlerta    = "perfil_alerta"
+	NotificacaoPerfilEmRevisao   = "perfil_revisao"
 )
 
 // Notificacao avisa o dono de uma publicação ou comentário sobre uma interação de outro usuário.

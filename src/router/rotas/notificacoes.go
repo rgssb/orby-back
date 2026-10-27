@@ -30,4 +30,22 @@ var rotasNotificacoes = []Rota{
 		Funcao:             controllers.MarcarNotificacoesComoLidas,
 		RequerAutenticacao: true,
 	},
+	{
+		URI:                "/denuncias",
+		Metodo:             http.MethodPost,
+		Funcao:             controllers.Denunciar,
+		RequerAutenticacao: true,
+	},
+	{
+		URI:                "/admin/denuncias",
+		Metodo:             http.MethodGet,
+		Funcao:             controllers.ListarPerfisDenunciados,
+		RequerAutenticacao: true,
+	},
+	{
+		URI:                "/admin/denuncias/{usuarioId}/resolver",
+		Metodo:             http.MethodPost,
+		Funcao:             controllers.ResolverDenuncias,
+		RequerAutenticacao: true,
+	},
 }

@@ -141,6 +141,21 @@ func Migrar() error {
 			FOREIGN KEY (silenciado_id) REFERENCES usuarios(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
 
+		`CREATE TABLE IF NOT EXISTS denuncias(
+			id int auto_increment primary key,
+			denunciante_id int not null,
+			dono_id int not null,
+			tipo varchar(12) not null,
+			alvo_id int not null,
+			motivo varchar(20) not null,
+			resolvida tinyint not null default 0,
+			criadoEm timestamp default current_timestamp(),
+			UNIQUE KEY uq_denuncia (denunciante_id, tipo, alvo_id),
+			INDEX idx_denuncias_dono (dono_id, resolvida),
+			FOREIGN KEY (denunciante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+			FOREIGN KEY (dono_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+
 		`CREATE TABLE IF NOT EXISTS grupos(
 			id int auto_increment primary key,
 			nome varchar(60) not null,
@@ -273,6 +288,9 @@ func Migrar() error {
 		}
 	}
 	if erro = garantirColuna(db, "usuarios", "termos_aceitos_em", "timestamp null default null"); erro != nil {
+		return erro
+	}
+	if erro = garantirColuna(db, "usuarios", "admin", "tinyint not null default 0"); erro != nil {
 		return erro
 	}
 	if erro = garantirColuna(db, "conversas", "desculpa", "tinyint not null default 0"); erro != nil {

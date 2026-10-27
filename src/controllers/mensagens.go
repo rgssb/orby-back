@@ -89,8 +89,13 @@ func ContarMensagensNaoLidas(w http.ResponseWriter, r *http.Request) {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
 	}
+	grupos, erro := repositorios.NovoRepositorioDeGrupos(db).ContarNaoLidas(eu)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
 	respostas.JSON(w, http.StatusOK, map[string]uint64{
-		"mensagens": mensagens, "solicitacoes": solicitacoes, "total": mensagens + solicitacoes,
+		"mensagens": mensagens, "solicitacoes": solicitacoes, "grupos": grupos, "total": mensagens + solicitacoes + grupos,
 	})
 }
 
