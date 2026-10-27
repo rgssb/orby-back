@@ -526,3 +526,27 @@ func BuscarUsuariosRelacionados(w http.ResponseWriter, r *http.Request) {
 
 	respostas.JSON(w, http.StatusOK, sugestoes)
 }
+
+// SugerirPessoasParaSeguir devolve quem o usuário pode querer seguir, priorizando quem as pessoas que ele segue seguem
+func SugerirPessoasParaSeguir(w http.ResponseWriter, r *http.Request) {
+	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
+	if erro != nil {
+		respostas.Erro(w, http.StatusUnauthorized, erro)
+		return
+	}
+
+	db, erro := banco.Conectar()
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	defer db.Close()
+
+	sugestoes, erro := repositorios.NovoRepositorioDeUsuarios(db).SugerirSeguir(usuarioID, 5)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+
+	respostas.JSON(w, http.StatusOK, sugestoes)
+}

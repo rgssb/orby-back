@@ -22,6 +22,7 @@ var rotasUsuarios = []Rota{
 		Funcao:             controllers.BuscarUsuarios,
 		RequerAutenticacao: true,
 	},
+	{URI: "/usuarios/sugestoes", Metodo: http.MethodGet, Funcao: controllers.SugerirPessoasParaSeguir, RequerAutenticacao: true},
 	{
 		URI:                "/usuarios/relacionados",
 		Metodo:             http.MethodGet,
