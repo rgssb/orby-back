@@ -159,6 +159,15 @@ func Migrar() error {
 			FOREIGN KEY (alvo_id) REFERENCES usuarios(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
 
+		`CREATE TABLE IF NOT EXISTS verificacoes_email(
+			id int auto_increment primary key,
+			usuario_id int not null,
+			token_hash char(64) not null unique,
+			expiraEm datetime not null,
+			criadoEm timestamp default current_timestamp(),
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+
 		`CREATE TABLE IF NOT EXISTS redefinicoes_senha(
 			id int auto_increment primary key,
 			usuario_id int not null,
@@ -197,6 +206,19 @@ func Migrar() error {
 	if erro = garantirColuna(db, "usuarios", "privado", "tinyint not null default 0"); erro != nil {
 		return erro
 	}
+	existia, erro := colunaExiste(db, "usuarios", "email_verificado_em")
+	if erro != nil {
+		return erro
+	}
+	if erro = garantirColuna(db, "usuarios", "email_verificado_em", "timestamp null default null"); erro != nil {
+		return erro
+	}
+	if !existia {
+		// quem já tinha conta antes da confirmação de e-mail existir continua podendo entrar
+		if _, erro = db.Exec("update usuarios set email_verificado_em = now()"); erro != nil {
+			return erro
+		}
+	}
 	if erro = garantirColuna(db, "usuarios", "termos_aceitos_em", "timestamp null default null"); erro != nil {
 		return erro
 	}
@@ -230,6 +252,7 @@ var tabelasBase = []string{
 		bio varchar(160) not null default '',
 		privado tinyint not null default 0,
 		termos_aceitos_em timestamp null default null,
+		email_verificado_em timestamp null default null,
 		criadoEm timestamp default current_timestamp()
 	) ENGINE=INNODB`,
 
@@ -312,18 +335,23 @@ func migrarMidia(db *sql.DB) error {
 	return nil
 }
 
-func garantirColuna(db *sql.DB, tabela, coluna, definicao string) error {
+func colunaExiste(db *sql.DB, tabela, coluna string) (bool, error) {
 	var existe int
 	erro := db.QueryRow(
 		`select count(*) from information_schema.columns
 		where table_schema = database() and table_name = ? and column_name = ?`,
 		tabela, coluna,
 	).Scan(&existe)
+	return existe > 0, erro
+}
+
+func garantirColuna(db *sql.DB, tabela, coluna, definicao string) error {
+	existe, erro := colunaExiste(db, tabela, coluna)
 	if erro != nil {
 		return erro
 	}
 
-	if existe > 0 {
+	if existe {
 		return nil
 	}
 

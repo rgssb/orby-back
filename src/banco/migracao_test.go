@@ -44,3 +44,29 @@ func TestMigrarCriaTudoEmBancoVazioERepete(t *testing.T) {
 		t.Fatal(erro)
 	}
 }
+
+func TestMigrarMarcaContasAntigasComoConfirmadas(t *testing.T) {
+	db := testes.NovoBanco(t)
+	testes.CriarUsuario(t, db, "antigo", false)
+	db.Exec("update usuarios set email_verificado_em = null")
+	db.Exec("alter table usuarios drop column email_verificado_em")
+
+	if erro := Migrar(); erro != nil {
+		t.Fatal(erro)
+	}
+	var confirmado bool
+	db.QueryRow("select email_verificado_em is not null from usuarios").Scan(&confirmado)
+	if !confirmado {
+		t.Error("conta existente deveria ficar com o e-mail confirmado")
+	}
+
+	// uma conta nova (depois da migração) nasce sem confirmação e não é afetada por novas migrações
+	db.Exec("insert into usuarios (nome, nick, email, senha) values ('n', 'novo', 'novo@orby.test', 'x')")
+	if erro := Migrar(); erro != nil {
+		t.Fatal(erro)
+	}
+	db.QueryRow("select email_verificado_em is not null from usuarios where nick = 'novo'").Scan(&confirmado)
+	if confirmado {
+		t.Error("migrar de novo não pode confirmar contas novas")
+	}
+}

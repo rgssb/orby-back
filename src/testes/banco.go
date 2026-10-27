@@ -88,7 +88,7 @@ func esquema(t *testing.T) string {
 func CriarUsuario(t *testing.T, db *sql.DB, nick string, privado bool) uint64 {
 	t.Helper()
 	resultado, erro := db.Exec(
-		"insert into usuarios (nome, nick, email, senha, privado) values (?, ?, ?, 'x', ?)",
+		"insert into usuarios (nome, nick, email, senha, privado, email_verificado_em) values (?, ?, ?, 'x', ?, now())",
 		nick, nick, nick+"@orby.test", privado,
 	)
 	if erro != nil {

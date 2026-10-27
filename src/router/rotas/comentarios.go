@@ -45,6 +45,8 @@ var rotasComentarios = []Rota{
 }
 
 var rotasRecuperacaoDeSenha = []Rota{
+	{URI: "/confirmar-email", Metodo: http.MethodPost, Funcao: controllers.ConfirmarEmail, RequerAutenticacao: false},
+	{URI: "/reenviar-confirmacao", Metodo: http.MethodPost, Funcao: controllers.ReenviarConfirmacao, RequerAutenticacao: false},
 	{
 		URI:                "/esqueci-senha",
 		Metodo:             http.MethodPost,

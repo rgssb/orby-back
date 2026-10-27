@@ -55,6 +55,16 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 	limitadorDeLogin.Reiniciar(chaveDoLimitador)
 
+	confirmado, erro := repositorio.EmailConfirmado(usuarioSalvoNoBanco.ID)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	if !confirmado {
+		respostas.Erro(w, http.StatusForbidden, errors.New("Confirme seu e-mail para entrar. Enviamos um link quando você criou a conta."))
+		return
+	}
+
 	token, erro := autenticacao.CriarToken(usuarioSalvoNoBanco.ID)
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)

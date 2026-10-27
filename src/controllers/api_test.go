@@ -1,7 +1,9 @@
 package controllers_test
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -215,5 +217,54 @@ func TestSilenciarEscondeDoFeedMasNaoDoPerfil(t *testing.T) {
 	chamar(t, eu, http.MethodPost, fmt.Sprintf("/usuarios/%d/dessilenciar", chato), "")
 	if n := total(feed); n != 2 {
 		t.Errorf("depois de reverter: %d publicações", n)
+	}
+}
+
+func TestLoginExigeEmailConfirmado(t *testing.T) {
+	db := testes.NovoBanco(t)
+	cadastro := `{"nome":"Ana","nick":"ana","email":"ana@teste.dev","senha":"demo1234","aceitouTermos":true}`
+	login := `{"email":"ana@teste.dev","senha":"demo1234"}`
+	if resposta := chamar(t, 0, http.MethodPost, "/usuarios", cadastro); resposta.Code != http.StatusCreated {
+		t.Fatalf("cadastro: status %d", resposta.Code)
+	}
+	if resposta := chamar(t, 0, http.MethodPost, "/login", login); resposta.Code != http.StatusForbidden {
+		t.Fatalf("login sem confirmar: status %d", resposta.Code)
+	}
+
+	guardar := func(token string, validade string) {
+		hash := sha256.Sum256([]byte(token))
+		db.Exec("delete from verificacoes_email")
+		db.Exec("insert into verificacoes_email (usuario_id, token_hash, expiraEm) select id, ?, "+validade+" from usuarios", hex.EncodeToString(hash[:]))
+	}
+	guardar("vencido", "date_sub(now(), interval 1 hour)")
+	if resposta := chamar(t, 0, http.MethodPost, "/confirmar-email", `{"token":"vencido"}`); resposta.Code != http.StatusBadRequest {
+		t.Errorf("token expirado: status %d", resposta.Code)
+	}
+	if resposta := chamar(t, 0, http.MethodPost, "/confirmar-email", `{"token":"inexistente"}`); resposta.Code != http.StatusBadRequest {
+		t.Errorf("token inexistente: status %d", resposta.Code)
+	}
+	if resposta := chamar(t, 0, http.MethodPost, "/login", login); resposta.Code != http.StatusForbidden {
+		t.Fatal("um token inválido não pode liberar o login")
+	}
+
+	guardar("valido", "date_add(now(), interval 1 hour)")
+	if resposta := chamar(t, 0, http.MethodPost, "/confirmar-email", `{"token":"valido"}`); resposta.Code != http.StatusNoContent {
+		t.Fatalf("confirmar: status %d", resposta.Code)
+	}
+	if resposta := chamar(t, 0, http.MethodPost, "/login", login); resposta.Code != http.StatusOK {
+		t.Fatalf("login depois de confirmar: status %d", resposta.Code)
+	}
+	if resposta := chamar(t, 0, http.MethodPost, "/confirmar-email", `{"token":"valido"}`); resposta.Code != http.StatusBadRequest {
+		t.Errorf("o link só pode ser usado uma vez: status %d", resposta.Code)
+	}
+}
+
+func TestReenviarConfirmacaoNaoRevelaContas(t *testing.T) {
+	testes.NovoBanco(t)
+	for _, email := range []string{"ninguem@teste.dev", "tambem-ninguem@teste.dev"} {
+		resposta := chamar(t, 0, http.MethodPost, "/reenviar-confirmacao", fmt.Sprintf(`{"email":%q}`, email))
+		if resposta.Code != http.StatusOK {
+			t.Errorf("reenviar para e-mail desconhecido: status %d", resposta.Code)
+		}
 	}
 }

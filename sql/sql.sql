@@ -6,6 +6,7 @@ DROP TABLE IF EXISTS salvos;
 DROP TABLE IF EXISTS reacoes_mensagens;
 DROP TABLE IF EXISTS imagens_mensagens;
 DROP TABLE IF EXISTS notificacoes;
+DROP TABLE IF EXISTS verificacoes_email;
 DROP TABLE IF EXISTS redefinicoes_senha;
 DROP TABLE IF EXISTS curtidas_comentarios;
 DROP TABLE IF EXISTS comentarios;
@@ -30,6 +31,7 @@ CREATE TABLE usuarios(
     bio varchar(160) not null default '',
     privado tinyint not null default 0,
     termos_aceitos_em timestamp null default null,
+    email_verificado_em timestamp null default null,
     criadoEm timestamp default current_timestamp()
 )ENGINE=INNODB;
 
@@ -106,6 +108,17 @@ CREATE TABLE curtidas_comentarios(
     PRIMARY KEY (comentario_id, usuario_id),
     FOREIGN KEY (comentario_id) REFERENCES comentarios(id) ON DELETE CASCADE,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+)ENGINE=INNODB;
+
+CREATE TABLE verificacoes_email(
+    id int auto_increment primary key,
+    usuario_id int not null,
+    token_hash char(64) not null unique,
+    expiraEm datetime not null,
+    criadoEm timestamp default current_timestamp(),
+    FOREIGN KEY (usuario_id)
+    REFERENCES usuarios(id)
+    ON DELETE CASCADE
 )ENGINE=INNODB;
 
 CREATE TABLE redefinicoes_senha(

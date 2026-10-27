@@ -64,6 +64,8 @@ func CriarUsuario(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	enviarConfirmacaoDeEmail(repositorio, usuario.ID, usuario.Nome, usuario.Email)
+
 	usuario.Senha = ""
 	respostas.JSON(w, http.StatusCreated, usuario)
 }
