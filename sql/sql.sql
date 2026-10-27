@@ -47,7 +47,7 @@ CREATE TABLE seguidores(
 
 CREATE TABLE publicacoes(
     id int auto_increment primary key,
-    titulo varchar(150) not null,
+    titulo varchar(150) not null default '',
     conteudo varchar(5000) not null,
 
     autor_id int not null,
