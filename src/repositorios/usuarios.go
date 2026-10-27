@@ -158,6 +158,18 @@ func (repositorio usuarios) Deletar(ID uint64) error {
 		return erro
 	}
 
+	// reposts de publicações desta conta não fazem sentido sem o original
+	reposts, erro := repositorio.idsDeMidia(
+		"select r.publicacao_id from reposts r inner join publicacoes o on o.id = r.original_id where o.autor_id = ?", ID)
+	if erro != nil {
+		return erro
+	}
+	for _, id := range reposts {
+		if _, erro = repositorio.db.Exec("delete from publicacoes where id = ?", id); erro != nil {
+			return erro
+		}
+	}
+
 	if _, erro = repositorio.db.Exec("delete from usuarios where id = ?", ID); erro != nil {
 		return erro
 	}

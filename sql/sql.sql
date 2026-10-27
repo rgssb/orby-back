@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS redefinicoes_senha;
 DROP TABLE IF EXISTS curtidas_comentarios;
 DROP TABLE IF EXISTS comentarios;
 DROP TABLE IF EXISTS mensagens;
+DROP TABLE IF EXISTS reposts;
 DROP TABLE IF EXISTS silenciados;
 DROP TABLE IF EXISTS bloqueios;
 DROP TABLE IF EXISTS conversas;
@@ -203,6 +204,14 @@ CREATE TABLE bloqueios(
     PRIMARY KEY (bloqueador_id, bloqueado_id),
     FOREIGN KEY (bloqueador_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (bloqueado_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE reposts(
+    publicacao_id int not null primary key,
+    original_id int not null,
+    FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE,
+    FOREIGN KEY (original_id) REFERENCES publicacoes(id) ON DELETE CASCADE,
+    INDEX idx_reposts_original (original_id)
 ) ENGINE=INNODB;
 
 CREATE TABLE silenciados(

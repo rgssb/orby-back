@@ -56,7 +56,11 @@ func PesquisarPublicacoes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	publicacoes, erro := repositorios.NovoRepositorioDePublicacoes(db).Pesquisar(usuarioID, termo, hashtag, limite, deslocamento)
+	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
+	publicacoes, erro := repositorio.Pesquisar(usuarioID, termo, hashtag, limite, deslocamento)
+	if erro == nil {
+		erro = repositorio.AnexarRepostagens(publicacoes, usuarioID)
+	}
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return

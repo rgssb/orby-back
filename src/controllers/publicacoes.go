@@ -96,6 +96,10 @@ func BuscarPublicacoes(w http.ResponseWriter, r *http.Request) {
 	if publicacoes == nil {
 		publicacoes = []modelos.Publicacao{}
 	}
+	if erro = repositorio.AnexarRepostagens(publicacoes, usuarioID); erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
 
 	respostas.JSON(w, http.StatusOK, publicacoes)
 
@@ -136,6 +140,12 @@ func BuscarPublicacao(w http.ResponseWriter, r *http.Request) {
 	if usuarioID, erro := autenticacao.ExtrairUsuarioID(r); erro == nil {
 		publicacao.CurtidoPorUsuario, _ = repositorio.CurtidaPor(publicacaoID, usuarioID)
 	}
+	anexadas := []modelos.Publicacao{publicacao}
+	if erro = repositorio.AnexarRepostagens(anexadas, visitanteID); erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	publicacao = anexadas[0]
 
 	respostas.JSON(w, http.StatusOK, publicacao)
 
@@ -280,6 +290,9 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
 	publicacoes, erro := repositorio.BuscarPorUsuario(usuarioID, usuarioLogadoID)
+	if erro == nil {
+		erro = repositorio.AnexarRepostagens(publicacoes, usuarioLogadoID)
+	}
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return

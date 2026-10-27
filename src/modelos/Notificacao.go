@@ -8,6 +8,7 @@ const (
 	NotificacaoComentario        = "comentario"
 	NotificacaoCurtidaComentario = "curtida_comentario"
 	NotificacaoResposta          = "resposta"
+	NotificacaoRepost            = "repost"
 	NotificacaoMencao            = "mencao"
 	NotificacaoSeguidor          = "seguidor"
 	NotificacaoPedidoSeguir      = "pedido_seguir"

@@ -383,3 +383,81 @@ func TestRespostasRespeitamPerfilPrivado(t *testing.T) {
 		t.Errorf("respostas de publicação privada: status %d", resposta.Code)
 	}
 }
+
+func TestRepostarPublicacoes(t *testing.T) {
+	db := testes.NovoBanco(t)
+	autor := testes.CriarUsuario(t, db, "autor", false)
+	bia := testes.CriarUsuario(t, db, "bia", false)
+	caio := testes.CriarUsuario(t, db, "caio", false)
+	original := criarPublicacao(t, db, autor)
+	caminho := "/publicacoes/" + original + "/repostar"
+
+	if codigo := chamar(t, bia, http.MethodPost, caminho, `{}`).Code; codigo != http.StatusCreated {
+		t.Fatalf("repostar: status %d", codigo)
+	}
+	if codigo := chamar(t, bia, http.MethodPost, caminho, `{}`).Code; codigo != http.StatusConflict {
+		t.Errorf("repost simples duplicado: status %d", codigo)
+	}
+	if codigo := chamar(t, bia, http.MethodPost, caminho, `{"conteudo":"concordo"}`).Code; codigo != http.StatusCreated {
+		t.Errorf("citação: status %d", codigo)
+	}
+
+	// repostar um repost aponta para a publicação de origem
+	var repostDaBia string
+	db.QueryRow("select p.id from publicacoes p where p.autor_id = ? and p.conteudo = ''", bia).Scan(&repostDaBia)
+	chamar(t, caio, http.MethodPost, "/publicacoes/"+repostDaBia+"/repostar", `{}`)
+	var apontando int
+	db.QueryRow("select count(*) from reposts where original_id = ?", original).Scan(&apontando)
+	if apontando != 3 {
+		t.Errorf("reposts ligados ao original: %d, esperado 3", apontando)
+	}
+
+	var avisos int
+	db.QueryRow("select count(*) from notificacoes where tipo = 'repost' and usuario_id = ?", autor).Scan(&avisos)
+	if avisos != 3 {
+		t.Errorf("avisos de repost: %d, esperado 3", avisos)
+	}
+
+	var feed []struct {
+		Reposts             uint64 `json:"reposts"`
+		RepostadoPorUsuario bool   `json:"repostadoPorUsuario"`
+		RepostDe            *struct {
+			ID           uint64 `json:"id"`
+			Conteudo     string `json:"conteudo"`
+			Indisponivel bool   `json:"indisponivel"`
+		} `json:"repostDe"`
+	}
+	json.NewDecoder(chamar(t, bia, http.MethodGet, fmt.Sprintf("/usuarios/%d/publicacoes", bia), "").Body).Decode(&feed)
+	if len(feed) != 2 || feed[0].RepostDe == nil || feed[0].RepostDe.Conteudo != "conteudo secreto" {
+		t.Fatalf("o repost deve trazer o original: %+v", feed)
+	}
+
+	// desfazer remove só o repost sem comentário
+	if codigo := chamar(t, bia, http.MethodDelete, caminho, "").Code; codigo != http.StatusNoContent {
+		t.Errorf("desfazer repost: status %d", codigo)
+	}
+	db.QueryRow("select count(*) from publicacoes where autor_id = ?", bia).Scan(&apontando)
+	if apontando != 1 {
+		t.Errorf("publicações da bia depois de desfazer: %d, esperado 1 (a citação)", apontando)
+	}
+
+	// se o autor virar privado, quem não o segue vê o original como indisponível
+	db.Exec("update usuarios set privado = 1 where id = ?", autor)
+	feed = nil
+	json.NewDecoder(chamar(t, caio, http.MethodGet, fmt.Sprintf("/usuarios/%d/publicacoes", caio), "").Body).Decode(&feed)
+	if len(feed) != 1 || feed[0].RepostDe == nil || !feed[0].RepostDe.Indisponivel || feed[0].RepostDe.Conteudo != "" {
+		t.Errorf("original de conta privada deve aparecer indisponível: %+v", feed)
+	}
+	if codigo := chamar(t, caio, http.MethodPost, caminho, `{}`).Code; codigo != http.StatusNotFound {
+		t.Errorf("repostar publicação de conta privada: status %d", codigo)
+	}
+
+	// apagar o original apaga os reposts
+	db.Exec("update usuarios set privado = 0 where id = ?", autor)
+	chamar(t, autor, http.MethodDelete, "/publicacoes/"+original, "")
+	var restantes int
+	db.QueryRow("select count(*) from publicacoes").Scan(&restantes)
+	if restantes != 0 {
+		t.Errorf("publicações restantes depois de apagar o original: %d", restantes)
+	}
+}

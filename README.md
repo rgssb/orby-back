@@ -7,6 +7,7 @@ API do **Orby**, uma rede social pequena feita em Go + MySQL. O front fica em [`
 - Publicações com título opcional, imagem, comentários com respostas aninhadas (até 3 níveis) e menções (`@nick`)
 - Feeds **Seguindo**, **Explorar** e **Em alta** (curtidas + comentários dos últimos 7 dias, peso igual)
 - Salvos, curtidas, seguir e pedidos para seguir
+- Reposts (simples ou com comentário); contas privadas não podem ser repostadas
 - Conta privada: só o dono e quem o segue veem posts, comentários e imagens
 - Bloqueio e direct em tempo real (SSE), com limite de mensagens até a resposta e pedido de desculpas para bloqueados
 - Silenciar usuários: as publicações somem dos feeds (sem avisar a pessoa), mas o perfil continua acessível

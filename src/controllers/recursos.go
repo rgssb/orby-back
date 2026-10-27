@@ -84,7 +84,11 @@ func BuscarPublicacoesSalvas(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	publicacoes, erro := repositorios.NovoRepositorioDePublicacoes(db).BuscarSalvos(eu, limite, deslocamento)
+	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
+	publicacoes, erro := repositorio.BuscarSalvos(eu, limite, deslocamento)
+	if erro == nil {
+		erro = repositorio.AnexarRepostagens(publicacoes, eu)
+	}
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return

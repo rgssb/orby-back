@@ -58,6 +58,16 @@ func (repositorio Notificacoes) NotificarResposta(paiID, raizID, atorID uint64) 
 	return erro
 }
 
+// NotificarRepost avisa o autor da publicacao original (nao avisa a si mesmo)
+func (repositorio Notificacoes) NotificarRepost(originalID, atorID uint64) error {
+	_, erro := repositorio.db.Exec(`
+		insert into notificacoes (usuario_id, ator_id, tipo, publicacao_id)
+		select p.autor_id, ?, ?, p.id from publicacoes p where p.id = ? and p.autor_id <> ?`,
+		atorID, modelos.NotificacaoRepost, originalID, atorID,
+	)
+	return erro
+}
+
 // NotificarCurtidaDeComentario avisa o autor do comentario (nao avisa a si mesmo e nao repete)
 func (repositorio Notificacoes) NotificarCurtidaDeComentario(comentarioID, atorID uint64) error {
 	_, erro := repositorio.db.Exec(`

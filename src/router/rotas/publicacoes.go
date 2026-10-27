@@ -86,6 +86,18 @@ var rotasPublicacoes = []Rota{
 		RequerAutenticacao: true,
 	},
 	{
+		URI:                "/publicacoes/{publicacaoId}/repostar",
+		Metodo:             http.MethodPost,
+		Funcao:             controllers.Repostar,
+		RequerAutenticacao: true,
+	},
+	{
+		URI:                "/publicacoes/{publicacaoId}/repostar",
+		Metodo:             http.MethodDelete,
+		Funcao:             controllers.DesfazerRepost,
+		RequerAutenticacao: true,
+	},
+	{
 		URI:                "/publicacoes/{publicacaoId}/descurtir",
 		Metodo:             http.MethodPost,
 		Funcao:             controllers.DescurtirPublicacao,
