@@ -1,7 +1,7 @@
 package modelos
 
 import (
-	"API/src/seguranca"
+	"orby/api/src/seguranca"
 	"errors"
 	"strings"
 	"time"

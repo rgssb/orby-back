@@ -1,7 +1,7 @@
 package rotas
 
 import (
-	"API/src/controllers"
+	"orby/api/src/controllers"
 	"net/http"
 )
 
@@ -12,7 +12,7 @@ var rotasPublicacoes = []Rota{
 	{
 		URI:                "/publicacoes",
 		Metodo:             http.MethodPost,
-		Funcao:             controllers.CriarPublicacoa,
+		Funcao:             controllers.CriarPublicacao,
 		RequerAutenticacao: true,
 	},
 
@@ -55,21 +55,21 @@ var rotasPublicacoes = []Rota{
 	{
 		URI:                "/publicacoes/{publicacaoId}",
 		Metodo:             http.MethodGet,
-		Funcao:             controllers.BuscarPublicacoa,
+		Funcao:             controllers.BuscarPublicacao,
 		RequerAutenticacao: true,
 	},
 
 	{
 		URI:                "/publicacoes/{publicacaoId}",
 		Metodo:             http.MethodPut,
-		Funcao:             controllers.AtualizarPublicacoa,
+		Funcao:             controllers.AtualizarPublicacao,
 		RequerAutenticacao: true,
 	},
 
 	{
 		URI:                "/publicacoes/{publicacaoId}",
 		Metodo:             http.MethodDelete,
-		Funcao:             controllers.DeletarPublicacoa,
+		Funcao:             controllers.DeletarPublicacao,
 		RequerAutenticacao: true,
 	},
 
@@ -82,13 +82,13 @@ var rotasPublicacoes = []Rota{
 	{
 		URI:                "/publicacoes/{publicacaoId}/curtir",
 		Metodo:             http.MethodPost,
-		Funcao:             controllers.CurtirPublicacoa,
+		Funcao:             controllers.CurtirPublicacao,
 		RequerAutenticacao: true,
 	},
 	{
 		URI:                "/publicacoes/{publicacaoId}/descurtir",
 		Metodo:             http.MethodPost,
-		Funcao:             controllers.DescurtirPublicacoa,
+		Funcao:             controllers.DescurtirPublicacao,
 		RequerAutenticacao: true,
 	},
 }

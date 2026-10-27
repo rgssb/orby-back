@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"API/src/autenticacao"
-	"API/src/banco"
-	"API/src/modelos"
-	"API/src/repositorios"
-	"API/src/respostas"
+	"orby/api/src/autenticacao"
+	"orby/api/src/banco"
+	"orby/api/src/modelos"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
 	"database/sql"
 	"encoding/json"
 	"errors"

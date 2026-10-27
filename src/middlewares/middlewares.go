@@ -1,8 +1,8 @@
 package middlewares
 
 import (
-	"API/src/autenticacao"
-	"API/src/respostas"
+	"orby/api/src/autenticacao"
+	"orby/api/src/respostas"
 	"log"
 	"net/http"
 )

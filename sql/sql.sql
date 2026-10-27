@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS devebook;
-USE devebook;
+CREATE DATABASE IF NOT EXISTS orby;
+USE orby;
 
 DROP TABLE IF EXISTS pedidos_seguir;
 DROP TABLE IF EXISTS salvos;

@@ -1,7 +1,7 @@
 package email
 
 import (
-	"API/src/config"
+	"orby/api/src/config"
 	"fmt"
 	"log"
 	"mime"

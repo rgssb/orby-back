@@ -1,7 +1,7 @@
 package repositorios
 
 import (
-	"API/src/modelos"
+	"orby/api/src/modelos"
 	"database/sql"
 	"regexp"
 	"strings"

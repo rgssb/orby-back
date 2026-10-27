@@ -1,4 +1,4 @@
-module API
+module orby/api
 
 go 1.26.5
 

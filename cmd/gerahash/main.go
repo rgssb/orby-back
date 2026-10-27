@@ -1,7 +1,7 @@
 package main
 
 import (
-	"API/src/seguranca"
+	"orby/api/src/seguranca"
 	"fmt"
 )
 

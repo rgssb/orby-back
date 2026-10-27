@@ -1,8 +1,8 @@
 package repositorios
 
 import (
-	"API/src/eventos"
-	"API/src/modelos"
+	"orby/api/src/eventos"
+	"orby/api/src/modelos"
 	"database/sql"
 	"errors"
 )

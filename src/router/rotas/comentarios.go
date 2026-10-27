@@ -1,7 +1,7 @@
 package rotas
 
 import (
-	"API/src/controllers"
+	"orby/api/src/controllers"
 	"net/http"
 )
 

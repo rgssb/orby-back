@@ -1,7 +1,7 @@
 package router
 
 import (
-	"API/src/router/rotas"
+	"orby/api/src/router/rotas"
 
 	"github.com/gorilla/mux"
 )
@@ -9,5 +9,5 @@ import (
 // Gerar vai retornar um router com as rotas configuradas
 func Gerar() *mux.Router {
 	r := mux.NewRouter()
-	return rotas.Congigurar(r)
+	return rotas.Configurar(r)
 }

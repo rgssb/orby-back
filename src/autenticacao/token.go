@@ -1,7 +1,7 @@
 package autenticacao
 
 import (
-	"API/src/config"
+	"orby/api/src/config"
 	"errors"
 	"fmt"
 	"net/http"

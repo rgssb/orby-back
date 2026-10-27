@@ -1,13 +1,13 @@
 package controllers
 
 import (
-	"API/src/banco"
-	"API/src/config"
-	"API/src/email"
-	"API/src/modelos"
-	"API/src/repositorios"
-	"API/src/respostas"
-	"API/src/seguranca"
+	"orby/api/src/banco"
+	"orby/api/src/config"
+	"orby/api/src/email"
+	"orby/api/src/modelos"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
+	"orby/api/src/seguranca"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"

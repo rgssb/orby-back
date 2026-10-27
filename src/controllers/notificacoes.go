@@ -1,10 +1,10 @@
 package controllers
 
 import (
-	"API/src/autenticacao"
-	"API/src/banco"
-	"API/src/repositorios"
-	"API/src/respostas"
+	"orby/api/src/autenticacao"
+	"orby/api/src/banco"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
 	"database/sql"
 	"errors"
 	"log"

@@ -1,7 +1,7 @@
 package rotas
 
 import (
-	"API/src/middlewares"
+	"orby/api/src/middlewares"
 	"github.com/gorilla/mux"
 	"net/http"
 )
@@ -19,7 +19,7 @@ type Rota struct {
 const limitePadraoDoCorpo = 1 << 20
 
 // Configurar coloca todas as rotas dentro do router
-func Congigurar(r *mux.Router) *mux.Router {
+func Configurar(r *mux.Router) *mux.Router {
 	rotas := rotasUsuarios
 	rotas = append(rotas, rotalogin)
 	rotas = append(rotas, rotasPublicacoes...)

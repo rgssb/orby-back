@@ -1,9 +1,9 @@
 package main
 
 import (
-	"API/src/banco"
-	"API/src/config"
-	"API/src/router"
+	"orby/api/src/banco"
+	"orby/api/src/config"
+	"orby/api/src/router"
 	"fmt"
 	"log"
 	"net/http"

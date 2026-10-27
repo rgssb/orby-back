@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"API/src/banco"
-	"API/src/eventos"
-	"API/src/modelos"
-	"API/src/repositorios"
-	"API/src/respostas"
+	"orby/api/src/banco"
+	"orby/api/src/eventos"
+	"orby/api/src/modelos"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
 	"encoding/json"
 	"errors"
 	"fmt"

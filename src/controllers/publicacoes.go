@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"API/src/autenticacao"
-	"API/src/banco"
-	"API/src/modelos"
-	"API/src/repositorios"
-	"API/src/respostas"
+	"orby/api/src/autenticacao"
+	"orby/api/src/banco"
+	"orby/api/src/modelos"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -17,7 +17,7 @@ import (
 )
 
 // CriarPublicacao cria uma nova puvlicacao no banco de dados
-func CriarPublicacoa(w http.ResponseWriter, r *http.Request) {
+func CriarPublicacao(w http.ResponseWriter, r *http.Request) {
 	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
 	if erro != nil {
 		respostas.Erro(w, http.StatusUnauthorized, erro)
@@ -102,7 +102,7 @@ func BuscarPublicacoes(w http.ResponseWriter, r *http.Request) {
 }
 
 // BuscarPublicacao traz uma unica publicacao
-func BuscarPublicacoa(w http.ResponseWriter, r *http.Request) {
+func BuscarPublicacao(w http.ResponseWriter, r *http.Request) {
 	parametros := mux.Vars(r)
 	publicacaoID, erro := strconv.ParseUint(parametros["publicacaoId"], 10, 64)
 	if erro != nil {
@@ -137,7 +137,7 @@ func BuscarPublicacoa(w http.ResponseWriter, r *http.Request) {
 }
 
 // AtualizarPublicacao altera os dados de uma publicacao
-func AtualizarPublicacoa(w http.ResponseWriter, r *http.Request) {
+func AtualizarPublicacao(w http.ResponseWriter, r *http.Request) {
 	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
 	if erro != nil {
 		respostas.Erro(w, http.StatusUnauthorized, erro)
@@ -197,7 +197,7 @@ func AtualizarPublicacoa(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeletarPublicacao exclui os dados de uma publicacao
-func DeletarPublicacoa(w http.ResponseWriter, r *http.Request) {
+func DeletarPublicacao(w http.ResponseWriter, r *http.Request) {
 	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
 	if erro != nil {
 		respostas.Erro(w, http.StatusUnauthorized, erro)
@@ -283,8 +283,8 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 	respostas.JSON(w, http.StatusOK, publicacoes)
 }
 
-// CurtirPublicacoa adiciona uma curtida na publicacao
-func CurtirPublicacoa(w http.ResponseWriter, r *http.Request) {
+// CurtirPublicacao adiciona uma curtida na publicacao
+func CurtirPublicacao(w http.ResponseWriter, r *http.Request) {
 	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
 	if erro != nil {
 		respostas.Erro(w, http.StatusUnauthorized, erro)
@@ -319,7 +319,7 @@ func CurtirPublicacoa(w http.ResponseWriter, r *http.Request) {
 }
 
 // DescurtirPublicacao retira uma curtida na publicaca
-func DescurtirPublicacoa(w http.ResponseWriter, r *http.Request) {
+func DescurtirPublicacao(w http.ResponseWriter, r *http.Request) {
 	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
 	if erro != nil {
 		respostas.Erro(w, http.StatusUnauthorized, erro)
