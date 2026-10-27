@@ -188,6 +188,9 @@ func Migrar() error {
 	if erro = garantirColuna(db, "usuarios", "privado", "tinyint not null default 0"); erro != nil {
 		return erro
 	}
+	if erro = garantirColuna(db, "usuarios", "termos_aceitos_em", "timestamp null default null"); erro != nil {
+		return erro
+	}
 	if erro = garantirColuna(db, "conversas", "desculpa", "tinyint not null default 0"); erro != nil {
 		return erro
 	}
@@ -217,6 +220,7 @@ var tabelasBase = []string{
 		senha varchar(555) not null,
 		bio varchar(160) not null default '',
 		privado tinyint not null default 0,
+		termos_aceitos_em timestamp null default null,
 		criadoEm timestamp default current_timestamp()
 	) ENGINE=INNODB`,
 

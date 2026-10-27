@@ -39,6 +39,11 @@ func CriarUsuario(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !usuario.AceitouTermos {
+		respostas.Erro(w, http.StatusBadRequest, errors.New("É preciso aceitar os Termos de Uso e a Política de Privacidade"))
+		return
+	}
+
 	db, erro := banco.Conectar()
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)

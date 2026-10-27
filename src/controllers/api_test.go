@@ -3,6 +3,7 @@ package controllers_test
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"orby/api/src/autenticacao"
@@ -150,5 +151,28 @@ func TestPublicacaoDePerfilPrivadoNaoVazaPelasRotas(t *testing.T) {
 	}
 	if resposta := chamar(t, dono, http.MethodGet, "/publicacoes/"+id, ""); resposta.Code != http.StatusOK {
 		t.Errorf("o dono deveria ver a própria publicação: status %d", resposta.Code)
+	}
+}
+
+func TestCadastroExigeAceiteDosTermos(t *testing.T) {
+	db := testes.NovoBanco(t)
+	base := `{"nome":"Ana","nick":"ana","email":"ana@teste.dev","senha":"demo1234"%s}`
+
+	if resposta := chamar(t, 0, http.MethodPost, "/usuarios", fmt.Sprintf(base, "")); resposta.Code != http.StatusBadRequest {
+		t.Fatalf("cadastro sem aceite: status %d", resposta.Code)
+	}
+	var total int
+	db.QueryRow("select count(*) from usuarios").Scan(&total)
+	if total != 0 {
+		t.Fatal("o usuário foi criado sem aceitar os termos")
+	}
+
+	if resposta := chamar(t, 0, http.MethodPost, "/usuarios", fmt.Sprintf(base, `,"aceitouTermos":true`)); resposta.Code != http.StatusCreated {
+		t.Fatalf("cadastro com aceite: status %d (%s)", resposta.Code, resposta.Body.String())
+	}
+	var aceitoEm sql.NullTime
+	db.QueryRow("select termos_aceitos_em from usuarios").Scan(&aceitoEm)
+	if !aceitoEm.Valid {
+		t.Error("a data do aceite não foi registrada")
 	}
 }

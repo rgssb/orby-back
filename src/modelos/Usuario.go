@@ -12,13 +12,15 @@ import (
 
 // Usuario representa um usuario ativo da rede social
 type Usuario struct {
-	ID         uint64 `json:"id,omitempty"`
-	Nome       string `json:"nome,omitempty"`
-	Nick       string `json:"nick,omitempty"`
-	Email      string `json:"email,omitempty"`
-	Senha      string `json:"senha,omitempty"`
-	Bio        string `json:"bio"`
-	FotoVersao uint64 `json:"fotoVersao"`
+	ID    uint64 `json:"id,omitempty"`
+	Nome  string `json:"nome,omitempty"`
+	Nick  string `json:"nick,omitempty"`
+	Email string `json:"email,omitempty"`
+	Senha string `json:"senha,omitempty"`
+	// AceitouTermos é exigido só no cadastro
+	AceitouTermos bool   `json:"aceitouTermos,omitempty"`
+	Bio           string `json:"bio"`
+	FotoVersao    uint64 `json:"fotoVersao"`
 	// BannerPreset é o tema pronto escolhido para o banner ("" quando não há) e BannerVersao é diferente de 0 quando há imagem própria
 	BannerPreset string    `json:"bannerPreset"`
 	BannerVersao uint64    `json:"bannerVersao"`

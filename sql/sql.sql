@@ -28,6 +28,7 @@ CREATE TABLE usuarios(
     senha varchar(555) not null,
     bio varchar(160) not null default '',
     privado tinyint not null default 0,
+    termos_aceitos_em timestamp null default null,
     criadoEm timestamp default current_timestamp()
 )ENGINE=INNODB;
 
