@@ -151,3 +151,40 @@ func TestGruposContaDoCriadorExcluida(t *testing.T) {
 		t.Fatalf("grupo de outro criador deveria continuar: %v", erro)
 	}
 }
+
+func TestGruposCandidatosEFoto(t *testing.T) {
+	db := testes.NovoBanco(t)
+	ana := testes.CriarUsuario(t, db, "ana", false)
+	beto := testes.CriarUsuario(t, db, "beto", false)
+	caio := testes.CriarUsuario(t, db, "caio", false)
+	duda := testes.CriarUsuario(t, db, "duda", false)
+	testes.CriarUsuario(t, db, "estranho", false)
+	db.Exec("insert into seguidores (usuario_id, seguidor_id) values (?, ?), (?, ?), (?, ?), (?, ?)", beto, ana, ana, beto, caio, ana, ana, duda)
+	db.Exec("insert into bloqueios (bloqueador_id, bloqueado_id) values (?, ?)", duda, ana)
+	repo := NovoRepositorioDeGrupos(db)
+
+	pessoas, erro := repo.Candidatos(ana, "")
+	if erro != nil || len(pessoas) != 2 || pessoas[0].Nick != "beto" || !pessoas[0].Mutuo || pessoas[1].Nick != "caio" {
+		t.Fatalf("candidatos inesperados: %+v %v", pessoas, erro)
+	}
+	if pessoas, _ = repo.Candidatos(ana, "cai"); len(pessoas) != 1 {
+		t.Fatalf("filtro por nick: %+v", pessoas)
+	}
+
+	id, _ := repo.Criar(ana, "Amigos", []uint64{beto})
+	if erro = repo.SalvarFoto(beto, id, "image/png", []byte("x")); !errors.Is(erro, ErrSemPermissao) {
+		t.Fatalf("membro comum não troca a foto: %v", erro)
+	}
+	if erro = repo.SalvarFoto(ana, id, "image/png", []byte("x")); erro != nil {
+		t.Fatal(erro)
+	}
+	if tipo, _, erro := repo.BuscarFoto(beto, id); erro != nil || tipo != "image/png" {
+		t.Fatalf("membro vê a foto: %v %v", tipo, erro)
+	}
+	if _, _, erro = repo.BuscarFoto(caio, id); !errors.Is(erro, ErrGrupoInexistente) {
+		t.Fatalf("não membro não vê: %v", erro)
+	}
+	if erro = repo.RemoverFoto(ana, id); erro != nil {
+		t.Fatal(erro)
+	}
+}

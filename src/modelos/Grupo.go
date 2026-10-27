@@ -50,6 +50,7 @@ type MensagemDeGrupo struct {
 type Grupo struct {
 	ID             uint64     `json:"id"`
 	Nome           string     `json:"nome"`
+	FotoVersao     uint64     `json:"fotoVersao"`
 	Membros        uint64     `json:"membros"`
 	NaoLidas       uint64     `json:"naoLidas"`
 	UltimaMensagem string     `json:"ultimaMensagem"`
@@ -64,4 +65,13 @@ type DialogoDeGrupo struct {
 	EuPossoAdicionar bool              `json:"euPossoAdicionar"`
 	ListaDeMembros   []MembroDeGrupo   `json:"listaDeMembros"`
 	MensagensDoGrupo []MensagemDeGrupo `json:"mensagensDoGrupo"`
+}
+
+// PessoaParaGrupo é alguém que o usuário pode colocar num grupo
+type PessoaParaGrupo struct {
+	ID         uint64 `json:"id"`
+	Nome       string `json:"nome"`
+	Nick       string `json:"nick"`
+	FotoVersao uint64 `json:"fotoVersao"`
+	Mutuo      bool   `json:"mutuo"`
 }

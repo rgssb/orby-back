@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"orby/api/src/eventos"
+	"orby/api/src/midia"
 	"orby/api/src/modelos"
 )
 
@@ -151,12 +152,13 @@ func (repositorio Grupos) Criar(eu uint64, nome string, convidados []uint64) (ui
 // Listar devolve os grupos do usuário, do mais recente para o mais antigo
 func (repositorio Grupos) Listar(eu uint64) ([]modelos.Grupo, error) {
 	linhas, erro := repositorio.db.Query(`
-		select g.id, g.nome,
+		select g.id, g.nome, cast(coalesce(unix_timestamp(fg.atualizadoEm), 0) as unsigned),
 			(select count(*) from grupo_membros x where x.grupo_id = g.id),
 			(select count(*) from grupo_mensagens n where n.grupo_id = g.id and n.id > m.lida_ate and n.remetente_id <> ?),
 			coalesce((select n.texto from grupo_mensagens n where n.grupo_id = g.id order by n.id desc limit 1), ''),
 			(select n.criadoEm from grupo_mensagens n where n.grupo_id = g.id order by n.id desc limit 1)
 		from grupo_membros m join grupos g on g.id = m.grupo_id
+		left join fotos_grupos fg on fg.grupo_id = g.id
 		where m.usuario_id = ?
 		order by coalesce((select max(n.id) from grupo_mensagens n where n.grupo_id = g.id), 0) desc, g.id desc`, eu, eu)
 	if erro != nil {
@@ -168,7 +170,7 @@ func (repositorio Grupos) Listar(eu uint64) ([]modelos.Grupo, error) {
 	for linhas.Next() {
 		var g modelos.Grupo
 		var ultima sql.NullTime
-		if erro = linhas.Scan(&g.ID, &g.Nome, &g.Membros, &g.NaoLidas, &g.UltimaMensagem, &ultima); erro != nil {
+		if erro = linhas.Scan(&g.ID, &g.Nome, &g.FotoVersao, &g.Membros, &g.NaoLidas, &g.UltimaMensagem, &ultima); erro != nil {
 			return nil, erro
 		}
 		if ultima.Valid {
@@ -190,7 +192,9 @@ func (repositorio Grupos) Abrir(eu, grupoID, apos uint64) (modelos.DialogoDeGrup
 		return dialogo, ErrGrupoInexistente
 	}
 	dialogo.ID, dialogo.EuID, dialogo.EuCriador, dialogo.EuPossoAdicionar = grupoID, eu, criador, pode
-	if erro = repositorio.db.QueryRow("select nome from grupos where id = ?", grupoID).Scan(&dialogo.Nome); erro != nil {
+	if erro = repositorio.db.QueryRow(
+		"select g.nome, cast(coalesce(unix_timestamp(fg.atualizadoEm), 0) as unsigned) from grupos g left join fotos_grupos fg on fg.grupo_id = g.id where g.id = ?", grupoID,
+	).Scan(&dialogo.Nome, &dialogo.FotoVersao); erro != nil {
 		return dialogo, erro
 	}
 
@@ -393,6 +397,7 @@ func (repositorio Grupos) Remover(eu, grupoID, alvo uint64) error {
 	}
 
 	restantes := repositorio.idsDosMembros(grupoID)
+	apagarFoto := false
 	if _, erro = transacao.Exec("delete from grupo_membros where grupo_id = ? and usuario_id = ?", grupoID, alvo); erro != nil {
 		return erro
 	}
@@ -404,6 +409,7 @@ func (repositorio Grupos) Remover(eu, grupoID, alvo uint64) error {
 			if _, erro = transacao.Exec("delete from grupos where id = ?", grupoID); erro != nil {
 				return erro
 			}
+			apagarFoto = true
 		case erro != nil:
 			return erro
 		default:
@@ -415,10 +421,102 @@ func (repositorio Grupos) Remover(eu, grupoID, alvo uint64) error {
 	if erro = transacao.Commit(); erro != nil {
 		return erro
 	}
+	if apagarFoto {
+		midia.Remover(midia.Grupos, grupoID)
+	}
 	for _, id := range restantes {
 		if id != eu {
 			eventos.Publicar(id, eventos.Evento{Tipo: "grupo", De: grupoID})
 		}
 	}
 	return nil
+}
+
+// SalvarFoto troca a foto do grupo; só criador e organizadores
+func (repositorio Grupos) SalvarFoto(eu, grupoID uint64, tipo string, dados []byte) error {
+	membro, pode, _, erro := repositorio.papel(repositorio.db, eu, grupoID)
+	if erro != nil {
+		return erro
+	}
+	if !membro {
+		return ErrGrupoInexistente
+	}
+	if !pode {
+		return ErrSemPermissao
+	}
+	if erro = midia.Gravar(midia.Grupos, grupoID, dados); erro != nil {
+		return erro
+	}
+	if _, erro = repositorio.db.Exec(
+		`insert into fotos_grupos (grupo_id, tipo) values (?, ?)
+		on duplicate key update tipo = values(tipo), atualizadoEm = current_timestamp()`, grupoID, tipo); erro != nil {
+		return erro
+	}
+	repositorio.avisar(grupoID, 0)
+	return nil
+}
+
+// BuscarFoto devolve a foto do grupo para os membros; sql.ErrNoRows quando não há foto
+func (repositorio Grupos) BuscarFoto(eu, grupoID uint64) (string, []byte, error) {
+	membro, _, _, erro := repositorio.papel(repositorio.db, eu, grupoID)
+	if erro != nil {
+		return "", nil, erro
+	}
+	if !membro {
+		return "", nil, ErrGrupoInexistente
+	}
+	var tipo string
+	if erro = repositorio.db.QueryRow("select tipo from fotos_grupos where grupo_id = ?", grupoID).Scan(&tipo); erro != nil {
+		return "", nil, erro
+	}
+	dados, erro := lerMidia(midia.Grupos, grupoID)
+	return tipo, dados, erro
+}
+
+// RemoverFoto tira a foto do grupo; só criador e organizadores
+func (repositorio Grupos) RemoverFoto(eu, grupoID uint64) error {
+	membro, pode, _, erro := repositorio.papel(repositorio.db, eu, grupoID)
+	if erro != nil {
+		return erro
+	}
+	if !membro {
+		return ErrGrupoInexistente
+	}
+	if !pode {
+		return ErrSemPermissao
+	}
+	if _, erro = repositorio.db.Exec("delete from fotos_grupos where grupo_id = ?", grupoID); erro != nil {
+		return erro
+	}
+	repositorio.avisar(grupoID, 0)
+	return midia.Remover(midia.Grupos, grupoID)
+}
+
+// Candidatos lista quem o usuário segue ou é seguido por ele (e não tem bloqueio), com quem se segue mutuamente primeiro
+func (repositorio Grupos) Candidatos(eu uint64, busca string) ([]modelos.PessoaParaGrupo, error) {
+	linhas, erro := repositorio.db.Query(`
+		select u.id, u.nome, u.nick, `+colunaFotoVersao+`,
+			exists(select 1 from seguidores a where a.usuario_id = u.id and a.seguidor_id = ?)
+			and exists(select 1 from seguidores b where b.usuario_id = ? and b.seguidor_id = u.id) as mutuo
+		from usuarios u left join fotos_usuarios f on f.usuario_id = u.id
+		where u.id <> ? and u.email_verificado_em is not null
+		and (exists(select 1 from seguidores a where a.usuario_id = u.id and a.seguidor_id = ?)
+			or exists(select 1 from seguidores b where b.usuario_id = ? and b.seguidor_id = u.id))
+		and not exists(select 1 from bloqueios k where (k.bloqueador_id = ? and k.bloqueado_id = u.id) or (k.bloqueador_id = u.id and k.bloqueado_id = ?))
+		and (? = '' or u.nick like concat(?, '%') or u.nome like concat('%', ?, '%'))
+		order by mutuo desc, u.nome limit 200`,
+		eu, eu, eu, eu, eu, eu, eu, busca, busca, busca)
+	if erro != nil {
+		return nil, erro
+	}
+	defer linhas.Close()
+	pessoas := []modelos.PessoaParaGrupo{}
+	for linhas.Next() {
+		var p modelos.PessoaParaGrupo
+		if erro = linhas.Scan(&p.ID, &p.Nome, &p.Nick, &p.FotoVersao, &p.Mutuo); erro != nil {
+			return nil, erro
+		}
+		pessoas = append(pessoas, p)
+	}
+	return pessoas, linhas.Err()
 }

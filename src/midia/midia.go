@@ -15,6 +15,7 @@ const (
 	Publicacoes = "publicacoes"
 	Mensagens   = "mensagens"
 	Extras      = "extras"
+	Grupos      = "grupos"
 )
 
 // Dir é a pasta raiz das mídias (variável MEDIA_DIR)

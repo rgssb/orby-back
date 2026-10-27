@@ -3,6 +3,7 @@ USE orby;
 
 DROP TABLE IF EXISTS pedidos_seguir;
 DROP TABLE IF EXISTS salvos;
+DROP TABLE IF EXISTS fotos_grupos;
 DROP TABLE IF EXISTS grupo_mensagens;
 DROP TABLE IF EXISTS grupo_membros;
 DROP TABLE IF EXISTS grupos;
@@ -253,6 +254,13 @@ CREATE TABLE grupo_membros(
     PRIMARY KEY (grupo_id, usuario_id),
     FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE CASCADE,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE fotos_grupos(
+    grupo_id int not null primary key,
+    tipo varchar(30) not null,
+    atualizadoEm timestamp default current_timestamp() on update current_timestamp(),
+    FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE CASCADE
 ) ENGINE=INNODB;
 
 CREATE TABLE grupo_mensagens(

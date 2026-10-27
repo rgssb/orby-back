@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"orby/api/src/banco"
 	"orby/api/src/modelos"
@@ -189,6 +191,81 @@ func RemoverDoGrupo(w http.ResponseWriter, r *http.Request) {
 	}
 	comGrupos(w, r, func(repo *repositorios.Grupos, eu, grupoID uint64) {
 		if erro := repo.Remover(eu, grupoID, alvo); erro != nil {
+			erroDeGrupo(w, erro)
+			return
+		}
+		respostas.JSON(w, http.StatusNoContent, nil)
+	})
+}
+
+// LimiteFotoDoGrupo é o tamanho máximo da foto de um grupo
+const LimiteFotoDoGrupo = 2 << 20
+
+// ListarCandidatosDeGrupo devolve as pessoas que podem entrar num grupo (?q= filtra por nome ou nick)
+func ListarCandidatosDeGrupo(w http.ResponseWriter, r *http.Request) {
+	busca := strings.Map(func(c rune) rune {
+		if c == '%' || c == '_' || c == '\\' {
+			return -1
+		}
+		return c
+	}, strings.TrimSpace(strings.TrimPrefix(r.URL.Query().Get("q"), "@")))
+	if len([]rune(busca)) > 50 {
+		busca = string([]rune(busca)[:50])
+	}
+	comGrupos(w, r, func(repo *repositorios.Grupos, eu, _ uint64) {
+		pessoas, erro := repo.Candidatos(eu, busca)
+		if erro != nil {
+			erroDeGrupo(w, erro)
+			return
+		}
+		respostas.JSON(w, http.StatusOK, pessoas)
+	})
+}
+
+// EnviarFotoDoGrupo troca a foto do grupo (corpo bruto da imagem)
+func EnviarFotoDoGrupo(w http.ResponseWriter, r *http.Request) {
+	dados, erro := io.ReadAll(http.MaxBytesReader(w, r.Body, LimiteFotoDoGrupo))
+	if erro != nil {
+		respostas.Erro(w, http.StatusRequestEntityTooLarge, errors.New("A foto deve ter no máximo 2 MB"))
+		return
+	}
+	tipo := http.DetectContentType(dados)
+	if len(dados) == 0 || !tiposDeFotoPermitidos[tipo] {
+		respostas.Erro(w, http.StatusUnsupportedMediaType, errors.New("Envie uma imagem JPG, PNG, WEBP ou GIF"))
+		return
+	}
+	comGrupos(w, r, func(repo *repositorios.Grupos, eu, grupoID uint64) {
+		if erro := repo.SalvarFoto(eu, grupoID, tipo, dados); erro != nil {
+			erroDeGrupo(w, erro)
+			return
+		}
+		respostas.JSON(w, http.StatusNoContent, nil)
+	})
+}
+
+// BuscarFotoDoGrupo devolve a foto do grupo para os membros
+func BuscarFotoDoGrupo(w http.ResponseWriter, r *http.Request) {
+	comGrupos(w, r, func(repo *repositorios.Grupos, eu, grupoID uint64) {
+		tipo, dados, erro := repo.BuscarFoto(eu, grupoID)
+		if errors.Is(erro, sql.ErrNoRows) {
+			http.NotFound(w, r)
+			return
+		}
+		if erro != nil {
+			erroDeGrupo(w, erro)
+			return
+		}
+		w.Header().Set("Content-Type", tipo)
+		w.Header().Set("Cache-Control", "private, max-age=86400")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Write(dados)
+	})
+}
+
+// RemoverFotoDoGrupo tira a foto do grupo
+func RemoverFotoDoGrupo(w http.ResponseWriter, r *http.Request) {
+	comGrupos(w, r, func(repo *repositorios.Grupos, eu, grupoID uint64) {
+		if erro := repo.RemoverFoto(eu, grupoID); erro != nil {
 			erroDeGrupo(w, erro)
 			return
 		}

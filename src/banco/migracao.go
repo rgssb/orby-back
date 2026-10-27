@@ -160,6 +160,13 @@ func Migrar() error {
 			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
 
+		`CREATE TABLE IF NOT EXISTS fotos_grupos(
+			grupo_id int not null primary key,
+			tipo varchar(30) not null,
+			atualizadoEm timestamp default current_timestamp() on update current_timestamp(),
+			FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+
 		`CREATE TABLE IF NOT EXISTS grupo_mensagens(
 			id int auto_increment primary key,
 			grupo_id int not null,
@@ -344,6 +351,7 @@ var tabelasDeMidia = []struct{ tabela, chave, tipo string }{
 	{"imagens_publicacoes", "publicacao_id", midia.Publicacoes},
 	{"imagens_extras_publicacoes", "id", midia.Extras},
 	{"imagens_mensagens", "mensagem_id", midia.Mensagens},
+	{"fotos_grupos", "grupo_id", midia.Grupos},
 }
 
 // migrarMidia move para o disco as imagens que ainda estão em colunas "dados" (versões antigas)
