@@ -1,0 +1,48 @@
+# Sobe MySQL + API + front. Espera os dois repositórios lado a lado:
+#   orby-back/ (este)  e  orby-front/
+# Uso: cp .env.docker.example .env.docker && docker compose --env-file .env.docker up --build
+services:
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_SENHA}
+      MYSQL_DATABASE: orby
+    volumes:
+      - dados:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      retries: 20
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db:3306
+      DB_USUARIO: root
+      DB_SENHA: ${DB_SENHA}
+      DB_NOME: orby
+      API_PORT: "9000"
+      SECRET_KEY: ${SECRET_KEY}
+      FRONT_URL: ${FRONT_URL:-http://localhost:3000}
+      MEDIA_DIR: /data/midia
+    volumes:
+      - midia:/data/midia
+
+  web:
+    build: ../orby-front
+    depends_on:
+      - api
+    environment:
+      API_URL: http://api:9000
+      APP_PORT: "3000"
+      HASH_KEY: ${HASH_KEY}
+      BLOCK_KEY: ${BLOCK_KEY}
+    ports:
+      - "3000:3000"
+
+volumes:
+  dados:
+  midia:

@@ -36,7 +36,8 @@ var (
 func Carregar() {
 	var erro error
 
-	if erro = godotenv.Load(); erro != nil {
+	// Em contêiner as variáveis vêm do ambiente, então o .env é opcional
+	if erro = godotenv.Load(); erro != nil && !os.IsNotExist(erro) {
 		log.Fatal(erro)
 	}
 
@@ -45,9 +46,14 @@ func Carregar() {
 		Porta = 9000
 	}
 
-	StringConexaoBanco = fmt.Sprintf("%s:%s@/%s?charset=utf8mb4&parseTime=True&loc=Local",
+	endereco := ""
+	if host := os.Getenv("DB_HOST"); host != "" {
+		endereco = "tcp(" + host + ")"
+	}
+	StringConexaoBanco = fmt.Sprintf("%s:%s@%s/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		os.Getenv("DB_USUARIO"),
 		os.Getenv("DB_SENHA"),
+		endereco,
 		os.Getenv("DB_NOME"),
 	)
 

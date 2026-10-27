@@ -1,11 +1,32 @@
 # Orby API
 
-API do Orby (Go + MySQL): publicações, comentários, menções, salvos, conta privada, bloqueio, direct em tempo real (SSE) e notificações. O front fica em `orby-front`.
+API do **Orby**, uma rede social pequena feita em Go + MySQL. O front fica em [`orby-front`](https://github.com/rgssb/orby-front).
 
-## Rodando
+## O que tem
 
-1. Crie o banco: `mysql -u root -p < sql/sql.sql` (**apaga e recria** as tabelas do banco `orby`).
-2. Copie `.env.example` para `.env` e preencha.
+- Publicações com título opcional, imagem, comentários e menções (`@nick`)
+- Feeds **Seguindo**, **Explorar** e **Em alta** (curtidas + comentários dos últimos 7 dias, peso igual)
+- Salvos, curtidas, seguir e pedidos para seguir
+- Conta privada: só o dono e quem o segue veem posts, comentários e imagens
+- Bloqueio e direct em tempo real (SSE), com limite de mensagens até a resposta e pedido de desculpas para bloqueados
+- Notificações, recuperação de senha por e-mail, limite de tentativas de login
+- Fotos, banners e imagens ficam em disco (`MEDIA_DIR`), não no MySQL
+
+## Rodando com Docker
+
+Com `orby-back` e `orby-front` clonados lado a lado:
+
+```sh
+cp .env.docker.example .env.docker   # troque as senhas e chaves
+docker compose --env-file .env.docker up --build
+```
+
+Abra http://localhost:3000. Os dados ficam nos volumes `dados` (MySQL) e `midia` (imagens); faça backup dos dois.
+
+## Rodando sem Docker
+
+1. Crie o banco `orby` no MySQL (as tabelas são criadas ao iniciar a API).
+2. Copie `.env.example` para `.env` e preencha (`DB_HOST` é opcional; sem ele usa o socket local).
 3. `go run .`
 
 ## Testes
