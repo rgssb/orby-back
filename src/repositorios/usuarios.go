@@ -175,6 +175,14 @@ func (repositorio usuarios) Deletar(ID uint64) error {
 		}
 	}
 
+	// os grupos criados por esta conta passam ao membro mais antigo; os que ficariam vazios somem junto com a conta
+	if _, erro = repositorio.db.Exec(`
+		update grupos g set g.criador_id = (
+			select m.usuario_id from grupo_membros m where m.grupo_id = g.id and m.usuario_id <> g.criador_id order by m.entrouEm, m.usuario_id limit 1)
+		where g.criador_id = ? and exists (select 1 from grupo_membros m where m.grupo_id = g.id and m.usuario_id <> g.criador_id)`, ID); erro != nil {
+		return erro
+	}
+
 	if _, erro = repositorio.db.Exec("delete from usuarios where id = ?", ID); erro != nil {
 		return erro
 	}

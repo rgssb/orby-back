@@ -3,6 +3,9 @@ USE orby;
 
 DROP TABLE IF EXISTS pedidos_seguir;
 DROP TABLE IF EXISTS salvos;
+DROP TABLE IF EXISTS grupo_mensagens;
+DROP TABLE IF EXISTS grupo_membros;
+DROP TABLE IF EXISTS grupos;
 DROP TABLE IF EXISTS reacoes_mensagens;
 DROP TABLE IF EXISTS imagens_mensagens;
 DROP TABLE IF EXISTS notificacoes;
@@ -231,6 +234,36 @@ CREATE TABLE silenciados(
     PRIMARY KEY (silenciador_id, silenciado_id),
     FOREIGN KEY (silenciador_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (silenciado_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE grupos(
+    id int auto_increment primary key,
+    nome varchar(60) not null,
+    criador_id int not null,
+    criadoEm timestamp default current_timestamp(),
+    FOREIGN KEY (criador_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE grupo_membros(
+    grupo_id int not null,
+    usuario_id int not null,
+    pode_adicionar tinyint not null default 0,
+    lida_ate int not null default 0,
+    entrouEm timestamp default current_timestamp(),
+    PRIMARY KEY (grupo_id, usuario_id),
+    FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE grupo_mensagens(
+    id int auto_increment primary key,
+    grupo_id int not null,
+    remetente_id int not null,
+    texto varchar(1000) not null,
+    criadoEm timestamp default current_timestamp(),
+    INDEX idx_grupo_mensagens (grupo_id, id),
+    FOREIGN KEY (grupo_id) REFERENCES grupos(id) ON DELETE CASCADE,
+    FOREIGN KEY (remetente_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=INNODB;
 
 CREATE TABLE reacoes_mensagens(

@@ -462,3 +462,34 @@ func TestRepostarPublicacoes(t *testing.T) {
 		t.Errorf("publicações restantes depois de apagar o original: %d", restantes)
 	}
 }
+
+func TestGruposViaAPI(t *testing.T) {
+	db := testes.NovoBanco(t)
+	ana := testes.CriarUsuario(t, db, "ana", false)
+	beto := testes.CriarUsuario(t, db, "beto", false)
+	caio := testes.CriarUsuario(t, db, "caio", false)
+
+	r := chamar(t, ana, http.MethodPost, "/grupos", fmt.Sprintf(`{"nome":"Amigos","membros":[%d]}`, beto))
+	if r.Code != http.StatusCreated {
+		t.Fatalf("criar: %d %s", r.Code, r.Body)
+	}
+	var criado struct{ ID uint64 }
+	json.Unmarshal(r.Body.Bytes(), &criado)
+	base := fmt.Sprintf("/grupos/%d", criado.ID)
+
+	if r = chamar(t, ana, http.MethodPost, "/grupos", `{"nome":"  ","membros":[1]}`); r.Code != http.StatusBadRequest {
+		t.Fatalf("nome em branco: %d", r.Code)
+	}
+	if r = chamar(t, caio, http.MethodGet, base, ""); r.Code != http.StatusNotFound {
+		t.Fatalf("não membro não vê o grupo: %d", r.Code)
+	}
+	if r = chamar(t, beto, http.MethodPost, base+"/mensagens", `{"texto":"oi"}`); r.Code != http.StatusCreated {
+		t.Fatalf("enviar: %d %s", r.Code, r.Body)
+	}
+	if r = chamar(t, beto, http.MethodPost, base+"/membros", fmt.Sprintf(`{"usuarioId":%d}`, caio)); r.Code != http.StatusForbidden {
+		t.Fatalf("sem permissão: %d", r.Code)
+	}
+	if r = chamar(t, ana, http.MethodPost, base+"/membros", fmt.Sprintf(`{"usuarioId":%d}`, caio)); r.Code != http.StatusNoContent {
+		t.Fatalf("adicionar: %d %s", r.Code, r.Body)
+	}
+}
