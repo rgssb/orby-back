@@ -200,6 +200,11 @@ func Migrar() error {
 		return erro
 	}
 
+	// O ranking "Em alta" filtra publicações por data
+	if erro = garantirIndice(db, "publicacoes", "idx_publicacoes_criado", "criadoEm"); erro != nil {
+		return erro
+	}
+
 	return migrarMidia(db)
 }
 
@@ -231,7 +236,8 @@ var tabelasBase = []string{
 		curtidas int default 0,
 		criadoEm timestamp default current_timestamp(),
 		editadoEm timestamp null default null,
-		FOREIGN KEY (autor_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		FOREIGN KEY (autor_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+		INDEX idx_publicacoes_criado (criadoEm)
 	) ENGINE=INNODB`,
 
 	`CREATE TABLE IF NOT EXISTS curtidas_publicacoes(
@@ -309,5 +315,19 @@ func garantirColuna(db *sql.DB, tabela, coluna, definicao string) error {
 	}
 
 	_, erro = db.Exec(fmt.Sprintf("alter table %s add column %s %s", tabela, coluna, definicao))
+	return erro
+}
+
+// garantirIndice cria o índice se ele ainda não existir
+func garantirIndice(db *sql.DB, tabela, indice, colunas string) error {
+	var existe int
+	erro := db.QueryRow(
+		`select count(*) from information_schema.statistics
+		where table_schema = database() and table_name = ? and index_name = ?`, tabela, indice,
+	).Scan(&existe)
+	if erro != nil || existe > 0 {
+		return erro
+	}
+	_, erro = db.Exec(fmt.Sprintf("alter table %s add index %s (%s)", tabela, indice, colunas))
 	return erro
 }

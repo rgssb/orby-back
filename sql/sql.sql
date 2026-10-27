@@ -57,7 +57,8 @@ CREATE TABLE publicacoes(
 
     curtidas int default 0,
     criadoEm timestamp default current_timestamp(),
-    editadoEm timestamp null default null
+    editadoEm timestamp null default null,
+    INDEX idx_publicacoes_criado (criadoEm)
 )ENGINE=INNODB;
 
 CREATE TABLE curtidas_publicacoes(
