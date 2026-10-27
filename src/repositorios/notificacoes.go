@@ -45,15 +45,15 @@ func (repositorio Notificacoes) NotificarComentario(publicacaoID, comentarioID, 
 	return erro
 }
 
-// NotificarResposta avisa o autor do comentario principal sobre uma resposta. O dono da publicacao nao
-// recebe este aviso porque ja e avisado do comentario; o aviso aponta para o comentario principal.
-func (repositorio Notificacoes) NotificarResposta(principalID, atorID uint64) error {
+// NotificarResposta avisa o autor do comentario respondido. O dono da publicacao nao recebe este aviso
+// porque ja e avisado do comentario; o aviso aponta para o comentario principal da conversa (raizID).
+func (repositorio Notificacoes) NotificarResposta(paiID, raizID, atorID uint64) error {
 	_, erro := repositorio.db.Exec(`
 		insert into notificacoes (usuario_id, ator_id, tipo, publicacao_id, comentario_id)
-		select c.autor_id, ?, ?, c.publicacao_id, c.id from comentarios c
+		select c.autor_id, ?, ?, c.publicacao_id, ? from comentarios c
 		inner join publicacoes p on p.id = c.publicacao_id
 		where c.id = ? and c.autor_id <> ? and c.autor_id <> p.autor_id`,
-		atorID, modelos.NotificacaoResposta, principalID, atorID,
+		atorID, modelos.NotificacaoResposta, raizID, paiID, atorID,
 	)
 	return erro
 }

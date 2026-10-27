@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"orby/api/src/autenticacao"
+	"orby/api/src/repositorios"
 	"orby/api/src/router"
 	"orby/api/src/testes"
 	"strconv"
@@ -269,7 +270,7 @@ func TestReenviarConfirmacaoNaoRevelaContas(t *testing.T) {
 	}
 }
 
-func TestRespostasDeComentariosTemUmNivel(t *testing.T) {
+func TestRespostasDeComentariosAninhadas(t *testing.T) {
 	db := testes.NovoBanco(t)
 	autor := testes.CriarUsuario(t, db, "autor", false)
 	bia := testes.CriarUsuario(t, db, "bia", false)
@@ -291,12 +292,25 @@ func TestRespostasDeComentariosTemUmNivel(t *testing.T) {
 	}
 	var respostaDoCaio uint64
 	db.QueryRow("select id from comentarios where autor_id = ? and parent_id is not null", caio).Scan(&respostaDoCaio)
-	// responder a uma resposta liga ao comentário principal
+	// responder a uma resposta liga ao comentário respondido
 	comentar(autor, publicacao, fmt.Sprintf(`{"conteudo":"resposta da resposta","parentId":%d}`, respostaDoCaio))
 	var ligadas int
-	db.QueryRow("select count(*) from comentarios where parent_id = ?", principal).Scan(&ligadas)
-	if ligadas != 2 {
-		t.Errorf("respostas ligadas ao comentário principal: %d, esperado 2", ligadas)
+	db.QueryRow("select count(*) from comentarios where parent_id = ?", respostaDoCaio).Scan(&ligadas)
+	if ligadas != 1 {
+		t.Errorf("respostas ligadas à resposta: %d, esperado 1", ligadas)
+	}
+
+	// passando da profundidade máxima, a resposta sobe um nível
+	pai := respostaDoCaio
+	for i := 0; i < 3; i++ {
+		_, pai = comentar(bia, publicacao, fmt.Sprintf(`{"conteudo":"fundo","parentId":%d}`, pai))
+	}
+	var profundidade int
+	for atual := pai; atual != 0; profundidade++ {
+		db.QueryRow("select coalesce(parent_id, 0) from comentarios where id = ?", atual).Scan(&atual)
+	}
+	if profundidade != repositorios.ProfundidadeMaximaDeRespostas+1 {
+		t.Errorf("profundidade da cadeia: %d", profundidade)
 	}
 
 	if codigo, _ := comentar(caio, outra, fmt.Sprintf(`{"conteudo":"x","parentId":%d}`, principal)); codigo != http.StatusBadRequest {
@@ -307,31 +321,53 @@ func TestRespostasDeComentariosTemUmNivel(t *testing.T) {
 	}
 
 	var principais []struct {
-		ID        uint64 `json:"id"`
-		Respostas uint64 `json:"respostas"`
+		ID             uint64 `json:"id"`
+		Respostas      uint64 `json:"respostas"`
+		TotalRespostas uint64 `json:"totalRespostas"`
 	}
 	json.NewDecoder(chamar(t, caio, http.MethodGet, "/publicacoes/"+publicacao+"/comentarios", "").Body).Decode(&principais)
-	if len(principais) != 1 || principais[0].Respostas != 2 {
+	if len(principais) != 1 || principais[0].Respostas != 1 || principais[0].TotalRespostas != 5 {
 		t.Fatalf("a lista principal deve ter só o comentário principal com 2 respostas: %+v", principais)
 	}
 	var respostas []map[string]interface{}
 	json.NewDecoder(chamar(t, caio, http.MethodGet, fmt.Sprintf("/comentarios/%d/respostas", principal), "").Body).Decode(&respostas)
-	if len(respostas) != 2 {
+	if len(respostas) != 1 {
 		t.Errorf("respostas listadas: %d", len(respostas))
 	}
 
 	var avisosParaBia, avisosParaOAutor int
 	db.QueryRow("select count(*) from notificacoes where tipo = 'resposta' and usuario_id = ?", bia).Scan(&avisosParaBia)
 	db.QueryRow("select count(*) from notificacoes where tipo = 'resposta' and usuario_id = ?", autor).Scan(&avisosParaOAutor)
-	if avisosParaBia != 2 || avisosParaOAutor != 0 {
-		t.Errorf("avisos de resposta: bia=%d (esperado 2), dono da publicação=%d (esperado 0)", avisosParaBia, avisosParaOAutor)
+	if avisosParaBia != 1 || avisosParaOAutor != 0 {
+		t.Errorf("avisos de resposta: bia=%d (esperado 1), dono da publicação=%d (esperado 0)", avisosParaBia, avisosParaOAutor)
 	}
 
-	chamar(t, bia, http.MethodDelete, fmt.Sprintf("/comentarios/%d", principal), "")
+	if r := chamar(t, bia, http.MethodDelete, fmt.Sprintf("/comentarios/%d", principal), ""); r.Code >= 300 {
+		t.Errorf("delete: %d %s", r.Code, r.Body.String())
+	}
 	var restantes int
 	db.QueryRow("select count(*) from comentarios").Scan(&restantes)
 	if restantes != 0 {
 		t.Errorf("apagar o comentário principal deve apagar as respostas: restaram %d", restantes)
+	}
+}
+
+func TestApagarPublicacaoComConversaFunda(t *testing.T) {
+	db := testes.NovoBanco(t)
+	autor := testes.CriarUsuario(t, db, "autor", false)
+	publicacao := criarPublicacao(t, db, autor)
+
+	var pai interface{}
+	for i := 0; i < repositorios.ProfundidadeMaximaDeRespostas+1; i++ {
+		resultado, erro := db.Exec("insert into comentarios (publicacao_id, autor_id, conteudo, parent_id) values (?, ?, 'x', ?)", publicacao, autor, pai)
+		if erro != nil {
+			t.Fatal(erro)
+		}
+		pai, _ = resultado.LastInsertId()
+	}
+
+	if resposta := chamar(t, autor, http.MethodDelete, "/publicacoes/"+publicacao, ""); resposta.Code >= 300 {
+		t.Fatalf("apagar publicação: %d %s", resposta.Code, resposta.Body.String())
 	}
 }
 

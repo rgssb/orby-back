@@ -21,6 +21,7 @@ type Comentario struct {
 	CurtidoPorUsuario bool      `json:"curtidoPorUsuario"`
 	ParentID          uint64    `json:"parentId,omitempty"`
 	Respostas         uint64    `json:"respostas"`
+	TotalRespostas    uint64    `json:"totalRespostas"`
 }
 
 // Preparar valida e formata o comentário recebido

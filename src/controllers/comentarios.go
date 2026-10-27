@@ -144,9 +144,9 @@ func CriarComentario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	repositorioDeComentarios := repositorios.NovoRepositorioDeComentarios(db)
-	var principalID uint64
+	var paiID, raizID uint64
 	if comentario.ParentID != 0 {
-		principalID, _, erro = repositorioDeComentarios.ResolverPai(publicacaoID, comentario.ParentID)
+		paiID, _, raizID, erro = repositorioDeComentarios.ResolverPai(publicacaoID, comentario.ParentID)
 		if errors.Is(erro, repositorios.ErroComentarioPaiInvalido) {
 			respostas.Erro(w, http.StatusBadRequest, erro)
 			return
@@ -155,7 +155,7 @@ func CriarComentario(w http.ResponseWriter, r *http.Request) {
 			respostas.Erro(w, http.StatusInternalServerError, erro)
 			return
 		}
-		comentario.ParentID = principalID
+		comentario.ParentID = paiID
 	}
 
 	comentario.ID, erro = repositorioDeComentarios.Criar(comentario)
@@ -174,8 +174,8 @@ func CriarComentario(w http.ResponseWriter, r *http.Request) {
 		if erro := n.NotificarComentario(publicacaoID, comentario.ID, usuarioID); erro != nil {
 			return erro
 		}
-		if principalID != 0 {
-			if erro := n.NotificarResposta(principalID, usuarioID); erro != nil {
+		if paiID != 0 {
+			if erro := n.NotificarResposta(paiID, raizID, usuarioID); erro != nil {
 				return erro
 			}
 		}

@@ -19,16 +19,38 @@ func NovoRepositorioDeComentarios(db *sql.DB) *Comentarios {
 	return &Comentarios{db: db}
 }
 
-// ResolverPai devolve o comentário principal ao qual uma resposta deve ser ligada. As conversas têm um
-// só nível: responder a uma resposta liga o novo comentário ao mesmo comentário principal.
-func (repositorio Comentarios) ResolverPai(publicacaoID, comentarioID uint64) (principalID, autorPrincipal uint64, erro error) {
-	erro = repositorio.db.QueryRow(`
-		select p.id, p.autor_id from comentarios c
-		inner join comentarios p on p.id = coalesce(c.parent_id, c.id)
-		where c.id = ? and c.publicacao_id = ?`, comentarioID, publicacaoID,
-	).Scan(&principalID, &autorPrincipal)
+// ProfundidadeMaximaDeRespostas limita o aninhamento: abaixo disso a resposta é ligada ao comentário avô
+const ProfundidadeMaximaDeRespostas = 3
+
+// ResolverPai devolve o comentário ao qual a resposta será ligada, o autor dele e o comentário principal
+// da conversa. Passando do limite de profundidade, a resposta sobe um nível.
+func (repositorio Comentarios) ResolverPai(publicacaoID, comentarioID uint64) (paiID, autorPai, raizID uint64, erro error) {
+	var parentDoPai uint64
+	erro = repositorio.db.QueryRow(
+		"select id, autor_id, coalesce(parent_id, 0) from comentarios where id = ? and publicacao_id = ?",
+		comentarioID, publicacaoID,
+	).Scan(&paiID, &autorPai, &parentDoPai)
 	if errors.Is(erro, sql.ErrNoRows) {
-		return 0, 0, ErroComentarioPaiInvalido
+		return 0, 0, 0, ErroComentarioPaiInvalido
+	}
+	if erro != nil {
+		return
+	}
+
+	// sobe até a raiz contando a profundidade do pai
+	profundidade, atual := 0, parentDoPai
+	raizID = paiID
+	for atual != 0 {
+		profundidade++
+		raizID = atual
+		var proximo uint64
+		if erro = repositorio.db.QueryRow("select coalesce(parent_id, 0) from comentarios where id = ?", atual).Scan(&proximo); erro != nil {
+			return
+		}
+		atual = proximo
+	}
+	if profundidade >= ProfundidadeMaximaDeRespostas {
+		erro = repositorio.db.QueryRow("select id, autor_id from comentarios where id = ?", parentDoPai).Scan(&paiID, &autorPai)
 	}
 	return
 }
@@ -98,7 +120,11 @@ func (repositorio Comentarios) listar(filtro string, referenciaID, usuarioID, li
 			(select count(*) from curtidas_comentarios cc where cc.comentario_id = c.id),
 			exists(select 1 from curtidas_comentarios cc where cc.comentario_id = c.id and cc.usuario_id = ?),
 			coalesce(c.parent_id, 0),
+			(select count(*) from comentarios r where r.parent_id = c.id),
 			(select count(*) from comentarios r where r.parent_id = c.id)
+			+ (select count(*) from comentarios r1 inner join comentarios r2 on r2.parent_id = r1.id where r1.parent_id = c.id)
+			+ (select count(*) from comentarios r1 inner join comentarios r2 on r2.parent_id = r1.id
+				inner join comentarios r3 on r3.parent_id = r2.id where r1.parent_id = c.id)
 		from comentarios c
 		inner join usuarios u on u.id = c.autor_id
 		left join fotos_usuarios f on f.usuario_id = u.id
@@ -132,6 +158,7 @@ func (repositorio Comentarios) listar(filtro string, referenciaID, usuarioID, li
 			&comentario.CurtidoPorUsuario,
 			&comentario.ParentID,
 			&comentario.Respostas,
+			&comentario.TotalRespostas,
 		); erro != nil {
 			return nil, erro
 		}
@@ -161,6 +188,44 @@ func (repositorio Comentarios) Descurtir(comentarioID, usuarioID uint64) error {
 
 // Deletar exclui um comentario
 func (repositorio Comentarios) Deletar(comentarioID uint64) error {
-	_, erro := repositorio.db.Exec("delete from comentarios where id = ?", comentarioID)
-	return erro
+	// A cascata do banco estoura o limite de tabelas visitadas em conversas fundas,
+	// então as respostas são removidas das mais profundas para as mais rasas
+	transacao, erro := repositorio.db.Begin()
+	if erro != nil {
+		return erro
+	}
+	defer transacao.Rollback()
+
+	niveis := [][]uint64{{comentarioID}}
+	for len(niveis) <= ProfundidadeMaximaDeRespostas {
+		var proximo []uint64
+		for _, pai := range niveis[len(niveis)-1] {
+			linhas, erro := transacao.Query("select id from comentarios where parent_id = ?", pai)
+			if erro != nil {
+				return erro
+			}
+			for linhas.Next() {
+				var id uint64
+				if erro = linhas.Scan(&id); erro != nil {
+					linhas.Close()
+					return erro
+				}
+				proximo = append(proximo, id)
+			}
+			linhas.Close()
+		}
+		if len(proximo) == 0 {
+			break
+		}
+		niveis = append(niveis, proximo)
+	}
+
+	for i := len(niveis) - 1; i >= 0; i-- {
+		for _, id := range niveis[i] {
+			if _, erro = transacao.Exec("delete from comentarios where id = ?", id); erro != nil {
+				return erro
+			}
+		}
+	}
+	return transacao.Commit()
 }
