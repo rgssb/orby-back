@@ -1,14 +1,14 @@
 package controllers
 
 import (
-	"orby/api/src/autenticacao"
-	"orby/api/src/banco"
-	"orby/api/src/repositorios"
-	"orby/api/src/respostas"
 	"database/sql"
 	"errors"
 	"log"
 	"net/http"
+	"orby/api/src/autenticacao"
+	"orby/api/src/banco"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
 	"strconv"
 
 	"github.com/gorilla/mux"

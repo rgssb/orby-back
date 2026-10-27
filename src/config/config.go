@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log"
+	"orby/api/src/midia"
 	"os"
 	"strconv"
 	"strings"
@@ -51,6 +52,10 @@ func Carregar() {
 	)
 
 	SecretKey = []byte(os.Getenv("SECRET_KEY"))
+
+	if valor := os.Getenv("MEDIA_DIR"); valor != "" {
+		midia.Dir = valor
+	}
 
 	if valor := os.Getenv("FRONT_URL"); valor != "" {
 		FrontURL = strings.TrimRight(valor, "/")

@@ -1,8 +1,8 @@
 package banco
 
 import (
-	"orby/api/src/config"
 	"database/sql"
+	"orby/api/src/config"
 
 	_ "github.com/go-sql-driver/mysql" //Driver
 )

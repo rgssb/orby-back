@@ -3,6 +3,7 @@ package banco
 import (
 	"database/sql"
 	"fmt"
+	"orby/api/src/midia"
 )
 
 // Migrar cria as tabelas e colunas usadas pelos recursos adicionais (bio, foto,
@@ -22,7 +23,6 @@ func Migrar() error {
 		`CREATE TABLE IF NOT EXISTS fotos_usuarios(
 			usuario_id int not null primary key,
 			tipo varchar(30) not null,
-			dados mediumblob not null,
 			atualizadoEm timestamp default current_timestamp() on update current_timestamp(),
 			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
@@ -31,7 +31,6 @@ func Migrar() error {
 			usuario_id int not null primary key,
 			preset varchar(20) null,
 			tipo varchar(30) null,
-			dados mediumblob null,
 			atualizadoEm timestamp default current_timestamp() on update current_timestamp(),
 			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
@@ -74,7 +73,6 @@ func Migrar() error {
 		`CREATE TABLE IF NOT EXISTS imagens_publicacoes(
 			publicacao_id int not null primary key,
 			tipo varchar(30) not null,
-			dados mediumblob not null,
 			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
 
@@ -124,7 +122,6 @@ func Migrar() error {
 		`CREATE TABLE IF NOT EXISTS imagens_mensagens(
 			mensagem_id int not null primary key,
 			tipo varchar(30) not null,
-			dados mediumblob not null,
 			FOREIGN KEY (mensagem_id) REFERENCES mensagens(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
 
@@ -196,6 +193,55 @@ func Migrar() error {
 		return erro
 	}
 
+	return migrarMidia(db)
+}
+
+// migrarMidia move para o disco as imagens que ainda estão em colunas "dados" (versões antigas)
+// e remove a coluna. Pode ser executada várias vezes.
+func migrarMidia(db *sql.DB) error {
+	tabelas := []struct{ tabela, chave, tipo string }{
+		{"fotos_usuarios", "usuario_id", midia.Fotos},
+		{"banners_usuarios", "usuario_id", midia.Banners},
+		{"imagens_publicacoes", "publicacao_id", midia.Publicacoes},
+		{"imagens_mensagens", "mensagem_id", midia.Mensagens},
+	}
+
+	for _, t := range tabelas {
+		var existe int
+		if erro := db.QueryRow(
+			`select count(*) from information_schema.columns
+			where table_schema = database() and table_name = ? and column_name = 'dados'`, t.tabela,
+		).Scan(&existe); erro != nil {
+			return fmt.Errorf("migracao de midia: %w", erro)
+		}
+		if existe == 0 {
+			continue
+		}
+
+		linhas, erro := db.Query(fmt.Sprintf("select %s, dados from %s where dados is not null", t.chave, t.tabela))
+		if erro != nil {
+			return fmt.Errorf("migracao de midia: %w", erro)
+		}
+		for linhas.Next() {
+			var id uint64
+			var dados []byte
+			if erro = linhas.Scan(&id, &dados); erro == nil {
+				erro = midia.Gravar(t.tipo, id, dados)
+			}
+			if erro != nil {
+				linhas.Close()
+				return fmt.Errorf("migracao de midia (%s): %w", t.tabela, erro)
+			}
+		}
+		if erro = linhas.Err(); erro != nil {
+			return fmt.Errorf("migracao de midia: %w", erro)
+		}
+		linhas.Close()
+
+		if _, erro = db.Exec(fmt.Sprintf("alter table %s drop column dados", t.tabela)); erro != nil {
+			return fmt.Errorf("migracao de midia: %w", erro)
+		}
+	}
 	return nil
 }
 

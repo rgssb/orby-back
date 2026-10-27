@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/go-sql-driver/mysql"
+	"orby/api/src/config"
+	"orby/api/src/midia"
 )
 
 // NovoBanco devolve uma conexão com um banco recém-criado a partir de sql/sql.sql.
@@ -37,6 +39,9 @@ func NovoBanco(t *testing.T) *sql.DB {
 		t.Fatal(erro)
 	}
 	t.Cleanup(func() { db.Close() })
+	midia.Dir = t.TempDir()
+	config.StringConexaoBanco = cfg.FormatDSN()
+	config.SecretKey = []byte("segredo-de-teste")
 
 	if _, erro = db.Exec(esquema(t)); erro != nil {
 		t.Fatalf("não foi possível criar o esquema: %v", erro)

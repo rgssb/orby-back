@@ -1,16 +1,16 @@
 package controllers
 
 import (
-	"orby/api/src/autenticacao"
-	"orby/api/src/banco"
-	"orby/api/src/modelos"
-	"orby/api/src/repositorios"
-	"orby/api/src/respostas"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"orby/api/src/autenticacao"
+	"orby/api/src/banco"
+	"orby/api/src/modelos"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -116,6 +116,11 @@ func BuscarPublicacao(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
+
+	visitanteID, _ := autenticacao.ExtrairUsuarioID(r)
+	if !verificarAcessoPublicacao(w, db, publicacaoID, visitanteID) {
+		return
+	}
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
 	publicacao, erro := repositorio.BuscarPorID(publicacaoID)
@@ -304,6 +309,10 @@ func CurtirPublicacao(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
+
+	if !verificarAcessoPublicacao(w, db, publicacaoID, usuarioID) {
+		return
+	}
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
 	if erro = repositorio.Curtir(publicacaoID, usuarioID); erro != nil {

@@ -1,12 +1,12 @@
 package controllers
 
 import (
+	"errors"
+	"net/http"
 	"orby/api/src/autenticacao"
 	"orby/api/src/banco"
 	"orby/api/src/repositorios"
 	"orby/api/src/respostas"
-	"errors"
-	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"

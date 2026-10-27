@@ -75,7 +75,6 @@ CREATE TABLE curtidas_publicacoes(
 CREATE TABLE fotos_usuarios(
     usuario_id int not null primary key,
     tipo varchar(30) not null,
-    dados mediumblob not null,
     atualizadoEm timestamp default current_timestamp() on update current_timestamp(),
     FOREIGN KEY (usuario_id)
     REFERENCES usuarios(id)
@@ -136,7 +135,6 @@ CREATE TABLE notificacoes(
 CREATE TABLE imagens_publicacoes(
     publicacao_id int not null primary key,
     tipo varchar(30) not null,
-    dados mediumblob not null,
     FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
 )ENGINE=INNODB;
 
@@ -144,7 +142,6 @@ CREATE TABLE banners_usuarios(
     usuario_id int not null primary key,
     preset varchar(20) null,
     tipo varchar(30) null,
-    dados mediumblob null,
     atualizadoEm timestamp default current_timestamp() on update current_timestamp(),
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 )ENGINE=INNODB;
@@ -201,7 +198,6 @@ CREATE TABLE reacoes_mensagens(
 CREATE TABLE imagens_mensagens(
     mensagem_id int not null primary key,
     tipo varchar(30) not null,
-    dados mediumblob not null,
     FOREIGN KEY (mensagem_id) REFERENCES mensagens(id) ON DELETE CASCADE
 ) ENGINE=INNODB;
 

@@ -1,14 +1,14 @@
 package controllers
 
 import (
+	"encoding/json"
+	"errors"
+	"net/http"
 	"orby/api/src/autenticacao"
 	"orby/api/src/banco"
 	"orby/api/src/modelos"
 	"orby/api/src/repositorios"
 	"orby/api/src/respostas"
-	"encoding/json"
-	"errors"
-	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
@@ -45,8 +45,7 @@ func alterarSalvo(w http.ResponseWriter, r *http.Request, salvar bool) {
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
 	if salvar {
-		if _, erro = repositorio.BuscarPorID(publicacaoID); erro != nil {
-			respostas.Erro(w, http.StatusNotFound, errors.New("Publicação não encontrada"))
+		if !verificarAcessoPublicacao(w, db, publicacaoID, eu) {
 			return
 		}
 		erro = repositorio.Salvar(eu, publicacaoID)

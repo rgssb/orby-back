@@ -1,8 +1,8 @@
 package modelos
 
 import (
-	"orby/api/src/seguranca"
 	"errors"
+	"orby/api/src/seguranca"
 	"strings"
 	"time"
 	"unicode/utf8"

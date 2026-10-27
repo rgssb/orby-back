@@ -1,11 +1,11 @@
 package email
 
 import (
-	"orby/api/src/config"
 	"fmt"
 	"log"
 	"mime"
 	"net/smtp"
+	"orby/api/src/config"
 	"strings"
 )
 

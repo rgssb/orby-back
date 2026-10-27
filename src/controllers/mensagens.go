@@ -1,15 +1,15 @@
 package controllers
 
 import (
+	"encoding/json"
+	"errors"
+	"net/http"
 	"orby/api/src/autenticacao"
 	"orby/api/src/banco"
 	"orby/api/src/modelos"
 	"orby/api/src/repositorios"
 	"orby/api/src/respostas"
 	"orby/api/src/seguranca"
-	"encoding/json"
-	"errors"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"

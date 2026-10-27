@@ -1,12 +1,12 @@
 package main
 
 import (
-	"orby/api/src/banco"
-	"orby/api/src/config"
-	"orby/api/src/router"
 	"fmt"
 	"log"
 	"net/http"
+	"orby/api/src/banco"
+	"orby/api/src/config"
+	"orby/api/src/router"
 )
 
 func main() {

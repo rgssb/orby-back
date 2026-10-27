@@ -1,18 +1,18 @@
 package controllers
 
 import (
-	"orby/api/src/autenticacao"
-	"orby/api/src/banco"
-	"orby/api/src/modelos"
-	"orby/api/src/repositorios"
-	"orby/api/src/respostas"
-	"orby/api/src/seguranca"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"orby/api/src/autenticacao"
+	"orby/api/src/banco"
+	"orby/api/src/modelos"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
+	"orby/api/src/seguranca"
 	"strconv"
 	"strings"
 

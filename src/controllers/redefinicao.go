@@ -1,13 +1,6 @@
 package controllers
 
 import (
-	"orby/api/src/banco"
-	"orby/api/src/config"
-	"orby/api/src/email"
-	"orby/api/src/modelos"
-	"orby/api/src/repositorios"
-	"orby/api/src/respostas"
-	"orby/api/src/seguranca"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -17,6 +10,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"orby/api/src/banco"
+	"orby/api/src/config"
+	"orby/api/src/email"
+	"orby/api/src/modelos"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
+	"orby/api/src/seguranca"
 	"strings"
 	"time"
 )

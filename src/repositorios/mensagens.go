@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"orby/api/src/eventos"
+	"orby/api/src/midia"
 	"orby/api/src/modelos"
 )
 
@@ -537,9 +538,12 @@ func (repositorio Mensagens) SalvarImagem(eu, mensagemID uint64, tipo string, da
 	if erro != nil {
 		return erro
 	}
+	if erro = midia.Gravar(midia.Mensagens, mensagemID, dados); erro != nil {
+		return erro
+	}
 	if _, erro = repositorio.db.Exec(
-		"insert into imagens_mensagens (mensagem_id, tipo, dados) values (?, ?, ?) on duplicate key update tipo = values(tipo), dados = values(dados)",
-		mensagemID, tipo, dados,
+		"insert into imagens_mensagens (mensagem_id, tipo) values (?, ?) on duplicate key update tipo = values(tipo)",
+		mensagemID, tipo,
 	); erro != nil {
 		return erro
 	}
@@ -553,8 +557,14 @@ func (repositorio Mensagens) BuscarImagem(eu, mensagemID uint64) (string, []byte
 		return "", nil, erro
 	}
 	var tipo string
-	var dados []byte
-	erro := repositorio.db.QueryRow("select tipo, dados from imagens_mensagens where mensagem_id = ?", mensagemID).Scan(&tipo, &dados)
+	erro := repositorio.db.QueryRow("select tipo from imagens_mensagens where mensagem_id = ?", mensagemID).Scan(&tipo)
+	if erro != nil {
+		if errors.Is(erro, sql.ErrNoRows) {
+			erro = ErrMensagemInexistente
+		}
+		return "", nil, erro
+	}
+	dados, erro := lerMidia(midia.Mensagens, mensagemID)
 	if errors.Is(erro, sql.ErrNoRows) {
 		erro = ErrMensagemInexistente
 	}

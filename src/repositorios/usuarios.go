@@ -3,6 +3,7 @@ package repositorios
 import (
 	"database/sql"
 	"fmt"
+	"orby/api/src/midia"
 	"orby/api/src/modelos"
 )
 
@@ -152,7 +153,8 @@ func (repositorio usuarios) Deletar(ID uint64) error {
 		return erro
 	}
 
-	return nil
+	midia.Remover(midia.Fotos, ID)
+	return midia.Remover(midia.Banners, ID)
 }
 
 // BuscarPorEmail busca um usuario por email e retorna seu id e senha com hash

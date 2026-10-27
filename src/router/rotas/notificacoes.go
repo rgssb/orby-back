@@ -1,8 +1,8 @@
 package rotas
 
 import (
-	"orby/api/src/controllers"
 	"net/http"
+	"orby/api/src/controllers"
 )
 
 var rotasNotificacoes = []Rota{

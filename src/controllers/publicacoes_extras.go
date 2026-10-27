@@ -1,14 +1,14 @@
 package controllers
 
 import (
-	"orby/api/src/autenticacao"
-	"orby/api/src/banco"
-	"orby/api/src/repositorios"
-	"orby/api/src/respostas"
 	"database/sql"
 	"errors"
 	"io"
 	"net/http"
+	"orby/api/src/autenticacao"
+	"orby/api/src/banco"
+	"orby/api/src/repositorios"
+	"orby/api/src/respostas"
 	"regexp"
 	"strconv"
 	"strings"
@@ -79,6 +79,11 @@ func BuscarImagemDaPublicacao(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
+
+	visitanteID, _ := autenticacao.ExtrairUsuarioID(r)
+	if !verificarAcessoPublicacao(w, db, publicacaoID, visitanteID) {
+		return
+	}
 
 	tipo, dados, erro := repositorios.NovoRepositorioDePublicacoes(db).BuscarImagem(publicacaoID)
 	if erro != nil {
@@ -185,4 +190,18 @@ func publicacaoDoUsuarioAutenticado(w http.ResponseWriter, r *http.Request) (*sq
 	}
 
 	return db, repositorio, publicacaoID, true
+}
+
+// verificarAcessoPublicacao responde 404 (sem revelar a existência) quando o usuário não pode ver a publicação
+func verificarAcessoPublicacao(w http.ResponseWriter, db *sql.DB, publicacaoID, usuarioID uint64) bool {
+	pode, erro := repositorios.NovoRepositorioDePublicacoes(db).PodeVer(publicacaoID, usuarioID)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return false
+	}
+	if !pode {
+		respostas.Erro(w, http.StatusNotFound, errors.New("Publicação não encontrada"))
+		return false
+	}
+	return true
 }

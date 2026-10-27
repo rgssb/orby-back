@@ -1,16 +1,16 @@
 package controllers
 
 import (
+	"encoding/json"
+	"errors"
+	"io/ioutil"
+	"net/http"
 	"orby/api/src/autenticacao"
 	"orby/api/src/banco"
 	"orby/api/src/modelos"
 	"orby/api/src/repositorios"
 	"orby/api/src/respostas"
 	"orby/api/src/seguranca"
-	"encoding/json"
-	"errors"
-	"io/ioutil"
-	"net/http"
 	"strconv"
 	"strings"
 )
@@ -63,5 +63,5 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	usuarioID := strconv.FormatUint(usuarioSalvoNoBanco.ID, 10)
 
-	respostas.JSON(w, http.StatusOK, modelos.DadosAutenticacao{usuarioID, token})
+	respostas.JSON(w, http.StatusOK, modelos.DadosAutenticacao{ID: usuarioID, Token: token})
 }

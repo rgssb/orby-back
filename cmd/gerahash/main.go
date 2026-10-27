@@ -1,8 +1,8 @@
 package main
 
 import (
-	"orby/api/src/seguranca"
 	"fmt"
+	"orby/api/src/seguranca"
 )
 
 func main() {

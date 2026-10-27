@@ -1,15 +1,15 @@
 package controllers
 
 import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"net/http"
 	"orby/api/src/autenticacao"
 	"orby/api/src/banco"
 	"orby/api/src/modelos"
 	"orby/api/src/repositorios"
 	"orby/api/src/respostas"
-	"database/sql"
-	"encoding/json"
-	"errors"
-	"net/http"
 	"strconv"
 
 	"github.com/go-sql-driver/mysql"
@@ -36,6 +36,10 @@ func BuscarComentarios(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
+
+	if !verificarAcessoPublicacao(w, db, publicacaoID, usuarioID) {
+		return
+	}
 
 	limite, _ := strconv.ParseUint(r.URL.Query().Get("limite"), 10, 64)
 	if limite > 500 {
@@ -85,6 +89,10 @@ func CriarComentario(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
+
+	if !verificarAcessoPublicacao(w, db, publicacaoID, usuarioID) {
+		return
+	}
 
 	comentario.ID, erro = repositorios.NovoRepositorioDeComentarios(db).Criar(comentario)
 	if erro != nil {

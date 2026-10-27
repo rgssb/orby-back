@@ -1,9 +1,9 @@
 package rotas
 
 import (
-	"orby/api/src/middlewares"
 	"github.com/gorilla/mux"
 	"net/http"
+	"orby/api/src/middlewares"
 )
 
 // Rota representa todas as rotas da API
