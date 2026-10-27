@@ -56,6 +56,55 @@ func BuscarComentarios(w http.ResponseWriter, r *http.Request) {
 	respostas.JSON(w, http.StatusOK, comentarios)
 }
 
+// BuscarRespostas lista as respostas de um comentario
+func BuscarRespostas(w http.ResponseWriter, r *http.Request) {
+	comentarioID, erro := strconv.ParseUint(mux.Vars(r)["comentarioId"], 10, 64)
+	if erro != nil {
+		respostas.Erro(w, http.StatusBadRequest, erro)
+		return
+	}
+
+	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
+	if erro != nil {
+		respostas.Erro(w, http.StatusUnauthorized, erro)
+		return
+	}
+
+	db, erro := banco.Conectar()
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	defer db.Close()
+
+	repositorio := repositorios.NovoRepositorioDeComentarios(db)
+	comentario, _, erro := repositorio.BuscarPorID(comentarioID)
+	if errors.Is(erro, sql.ErrNoRows) {
+		respostas.Erro(w, http.StatusNotFound, errors.New("Comentário não encontrado"))
+		return
+	}
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	if !verificarAcessoPublicacao(w, db, comentario.PublicacaoID, usuarioID) {
+		return
+	}
+
+	limite, _ := strconv.ParseUint(r.URL.Query().Get("limite"), 10, 64)
+	if limite > 500 {
+		limite = 500
+	}
+	deslocamento, _ := strconv.ParseUint(r.URL.Query().Get("deslocamento"), 10, 64)
+
+	lista, erro := repositorio.BuscarRespostas(comentarioID, usuarioID, limite, deslocamento)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	respostas.JSON(w, http.StatusOK, lista)
+}
+
 // CriarComentario adiciona um comentario do usuario autenticado a uma publicacao
 func CriarComentario(w http.ResponseWriter, r *http.Request) {
 	usuarioID, erro := autenticacao.ExtrairUsuarioID(r)
@@ -94,7 +143,22 @@ func CriarComentario(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comentario.ID, erro = repositorios.NovoRepositorioDeComentarios(db).Criar(comentario)
+	repositorioDeComentarios := repositorios.NovoRepositorioDeComentarios(db)
+	var principalID uint64
+	if comentario.ParentID != 0 {
+		principalID, _, erro = repositorioDeComentarios.ResolverPai(publicacaoID, comentario.ParentID)
+		if errors.Is(erro, repositorios.ErroComentarioPaiInvalido) {
+			respostas.Erro(w, http.StatusBadRequest, erro)
+			return
+		}
+		if erro != nil {
+			respostas.Erro(w, http.StatusInternalServerError, erro)
+			return
+		}
+		comentario.ParentID = principalID
+	}
+
+	comentario.ID, erro = repositorioDeComentarios.Criar(comentario)
 	if erro != nil {
 		var erroMySQL *mysql.MySQLError
 		if errors.As(erro, &erroMySQL) && erroMySQL.Number == 1452 {
@@ -109,6 +173,11 @@ func CriarComentario(w http.ResponseWriter, r *http.Request) {
 	registrarNotificacao(db, func(n *repositorios.Notificacoes) error {
 		if erro := n.NotificarComentario(publicacaoID, comentario.ID, usuarioID); erro != nil {
 			return erro
+		}
+		if principalID != 0 {
+			if erro := n.NotificarResposta(principalID, usuarioID); erro != nil {
+				return erro
+			}
 		}
 		return n.NotificarMencoes(comentario.Conteudo, publicacaoID, comentario.ID, usuarioID)
 	})

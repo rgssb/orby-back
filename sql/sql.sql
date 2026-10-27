@@ -93,11 +93,15 @@ CREATE TABLE comentarios(
     conteudo varchar(500) not null,
     criadoEm timestamp default current_timestamp(),
     editadoEm timestamp null default null,
+    parent_id int null default null,
     FOREIGN KEY (publicacao_id)
     REFERENCES publicacoes(id)
     ON DELETE CASCADE,
     FOREIGN KEY (autor_id)
     REFERENCES usuarios(id)
+    ON DELETE CASCADE,
+    CONSTRAINT fk_comentarios_parent FOREIGN KEY (parent_id)
+    REFERENCES comentarios(id)
     ON DELETE CASCADE,
     INDEX idx_comentarios_publicacao (publicacao_id)
 )ENGINE=INNODB;

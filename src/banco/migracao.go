@@ -230,6 +230,12 @@ func Migrar() error {
 		return erro
 	}
 
+	if erro = garantirColuna(db, "comentarios", "parent_id", "int null default null"); erro != nil {
+		return erro
+	}
+	if erro = garantirFK(db, "comentarios", "fk_comentarios_parent", "parent_id", "comentarios(id)"); erro != nil {
+		return erro
+	}
 	if erro = garantirColuna(db, "publicacoes", "editadoEm", "timestamp null default null"); erro != nil {
 		return erro
 	}
@@ -370,5 +376,19 @@ func garantirIndice(db *sql.DB, tabela, indice, colunas string) error {
 		return erro
 	}
 	_, erro = db.Exec(fmt.Sprintf("alter table %s add index %s (%s)", tabela, indice, colunas))
+	return erro
+}
+
+// garantirFK cria a chave estrangeira (ON DELETE CASCADE) se ela ainda não existir
+func garantirFK(db *sql.DB, tabela, nome, coluna, referencia string) error {
+	var existe int
+	erro := db.QueryRow(
+		`select count(*) from information_schema.table_constraints
+		where table_schema = database() and table_name = ? and constraint_name = ? and constraint_type = 'FOREIGN KEY'`, tabela, nome,
+	).Scan(&existe)
+	if erro != nil || existe > 0 {
+		return erro
+	}
+	_, erro = db.Exec(fmt.Sprintf("alter table %s add constraint %s foreign key (%s) references %s on delete cascade", tabela, nome, coluna, referencia))
 	return erro
 }

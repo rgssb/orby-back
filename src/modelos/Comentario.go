@@ -19,6 +19,8 @@ type Comentario struct {
 	Editado           bool      `json:"editado"`
 	Curtidas          uint64    `json:"curtidas"`
 	CurtidoPorUsuario bool      `json:"curtidoPorUsuario"`
+	ParentID          uint64    `json:"parentId,omitempty"`
+	Respostas         uint64    `json:"respostas"`
 }
 
 // Preparar valida e formata o comentário recebido

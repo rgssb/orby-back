@@ -268,3 +268,82 @@ func TestReenviarConfirmacaoNaoRevelaContas(t *testing.T) {
 		}
 	}
 }
+
+func TestRespostasDeComentariosTemUmNivel(t *testing.T) {
+	db := testes.NovoBanco(t)
+	autor := testes.CriarUsuario(t, db, "autor", false)
+	bia := testes.CriarUsuario(t, db, "bia", false)
+	caio := testes.CriarUsuario(t, db, "caio", false)
+	publicacao := criarPublicacao(t, db, autor)
+	outra := criarPublicacao(t, db, autor)
+
+	comentar := func(usuario uint64, pub, corpo string) (int, uint64) {
+		resposta := chamar(t, usuario, http.MethodPost, "/publicacoes/"+pub+"/comentarios", corpo)
+		var criado struct {
+			ID uint64 `json:"id"`
+		}
+		json.NewDecoder(resposta.Body).Decode(&criado)
+		return resposta.Code, criado.ID
+	}
+	_, principal := comentar(bia, publicacao, `{"conteudo":"comentário principal"}`)
+	if codigo, _ := comentar(caio, publicacao, fmt.Sprintf(`{"conteudo":"resposta","parentId":%d}`, principal)); codigo != http.StatusCreated {
+		t.Fatalf("responder: status %d", codigo)
+	}
+	var respostaDoCaio uint64
+	db.QueryRow("select id from comentarios where autor_id = ? and parent_id is not null", caio).Scan(&respostaDoCaio)
+	// responder a uma resposta liga ao comentário principal
+	comentar(autor, publicacao, fmt.Sprintf(`{"conteudo":"resposta da resposta","parentId":%d}`, respostaDoCaio))
+	var ligadas int
+	db.QueryRow("select count(*) from comentarios where parent_id = ?", principal).Scan(&ligadas)
+	if ligadas != 2 {
+		t.Errorf("respostas ligadas ao comentário principal: %d, esperado 2", ligadas)
+	}
+
+	if codigo, _ := comentar(caio, outra, fmt.Sprintf(`{"conteudo":"x","parentId":%d}`, principal)); codigo != http.StatusBadRequest {
+		t.Errorf("responder comentário de outra publicação: status %d", codigo)
+	}
+	if codigo, _ := comentar(caio, publicacao, `{"conteudo":"x","parentId":99999}`); codigo != http.StatusBadRequest {
+		t.Errorf("responder comentário inexistente: status %d", codigo)
+	}
+
+	var principais []struct {
+		ID        uint64 `json:"id"`
+		Respostas uint64 `json:"respostas"`
+	}
+	json.NewDecoder(chamar(t, caio, http.MethodGet, "/publicacoes/"+publicacao+"/comentarios", "").Body).Decode(&principais)
+	if len(principais) != 1 || principais[0].Respostas != 2 {
+		t.Fatalf("a lista principal deve ter só o comentário principal com 2 respostas: %+v", principais)
+	}
+	var respostas []map[string]interface{}
+	json.NewDecoder(chamar(t, caio, http.MethodGet, fmt.Sprintf("/comentarios/%d/respostas", principal), "").Body).Decode(&respostas)
+	if len(respostas) != 2 {
+		t.Errorf("respostas listadas: %d", len(respostas))
+	}
+
+	var avisosParaBia, avisosParaOAutor int
+	db.QueryRow("select count(*) from notificacoes where tipo = 'resposta' and usuario_id = ?", bia).Scan(&avisosParaBia)
+	db.QueryRow("select count(*) from notificacoes where tipo = 'resposta' and usuario_id = ?", autor).Scan(&avisosParaOAutor)
+	if avisosParaBia != 2 || avisosParaOAutor != 0 {
+		t.Errorf("avisos de resposta: bia=%d (esperado 2), dono da publicação=%d (esperado 0)", avisosParaBia, avisosParaOAutor)
+	}
+
+	chamar(t, bia, http.MethodDelete, fmt.Sprintf("/comentarios/%d", principal), "")
+	var restantes int
+	db.QueryRow("select count(*) from comentarios").Scan(&restantes)
+	if restantes != 0 {
+		t.Errorf("apagar o comentário principal deve apagar as respostas: restaram %d", restantes)
+	}
+}
+
+func TestRespostasRespeitamPerfilPrivado(t *testing.T) {
+	db := testes.NovoBanco(t)
+	dono := testes.CriarUsuario(t, db, "dono", true)
+	estranho := testes.CriarUsuario(t, db, "estranho", false)
+	publicacao := criarPublicacao(t, db, dono)
+	resultado, _ := db.Exec("insert into comentarios (publicacao_id, autor_id, conteudo) values (?, ?, 'c')", publicacao, dono)
+	id, _ := resultado.LastInsertId()
+
+	if resposta := chamar(t, estranho, http.MethodGet, fmt.Sprintf("/comentarios/%d/respostas", id), ""); resposta.Code != http.StatusNotFound {
+		t.Errorf("respostas de publicação privada: status %d", resposta.Code)
+	}
+}

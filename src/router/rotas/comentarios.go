@@ -37,6 +37,12 @@ var rotasComentarios = []Rota{
 		RequerAutenticacao: true,
 	},
 	{
+		URI:                "/comentarios/{comentarioId}/respostas",
+		Metodo:             http.MethodGet,
+		Funcao:             controllers.BuscarRespostas,
+		RequerAutenticacao: true,
+	},
+	{
 		URI:                "/comentarios/{comentarioId}/descurtir",
 		Metodo:             http.MethodPost,
 		Funcao:             controllers.DescurtirComentario,
