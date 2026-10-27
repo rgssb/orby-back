@@ -78,5 +78,16 @@ func SituacaoDeBloqueio(w http.ResponseWriter, r *http.Request) {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
 	}
-	respostas.JSON(w, http.StatusOK, map[string]bool{"bloqueei": bloqueei, "bloqueado": bloqueado})
+	db, erro := banco.Conectar()
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	defer db.Close()
+	silenciei, erro := repositorios.NovoRepositorioDeSilenciados(db).Silenciei(eu, outro)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	respostas.JSON(w, http.StatusOK, map[string]bool{"bloqueei": bloqueei, "bloqueado": bloqueado, "silenciei": silenciei})
 }

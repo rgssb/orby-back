@@ -176,3 +176,44 @@ func TestCadastroExigeAceiteDosTermos(t *testing.T) {
 		t.Error("a data do aceite não foi registrada")
 	}
 }
+
+func TestSilenciarEscondeDoFeedMasNaoDoPerfil(t *testing.T) {
+	db := testes.NovoBanco(t)
+	eu := testes.CriarUsuario(t, db, "eu", false)
+	chato := testes.CriarUsuario(t, db, "chato", false)
+	amigo := testes.CriarUsuario(t, db, "amigo", false)
+	criarPublicacao(t, db, chato)
+	criarPublicacao(t, db, amigo)
+
+	total := func(caminho string) int {
+		t.Helper()
+		var lista []map[string]interface{}
+		resposta := chamar(t, eu, http.MethodGet, caminho, "")
+		if erro := json.NewDecoder(resposta.Body).Decode(&lista); erro != nil {
+			t.Fatal(erro)
+		}
+		return len(lista)
+	}
+	feed := "/publicacoes?aba=todos"
+	if n := total(feed); n != 2 {
+		t.Fatalf("antes de silenciar: %d publicações", n)
+	}
+
+	if resposta := chamar(t, eu, http.MethodPost, fmt.Sprintf("/usuarios/%d/silenciar", chato), ""); resposta.Code != http.StatusNoContent {
+		t.Fatalf("silenciar: status %d", resposta.Code)
+	}
+	if n := total(feed); n != 1 {
+		t.Errorf("depois de silenciar: %d publicações no feed", n)
+	}
+	if n := total(fmt.Sprintf("/usuarios/%d/publicacoes", chato)); n != 1 {
+		t.Errorf("o perfil de quem foi silenciado deveria continuar visível: %d", n)
+	}
+	if resposta := chamar(t, eu, http.MethodPost, fmt.Sprintf("/usuarios/%d/silenciar", eu), ""); resposta.Code != http.StatusForbidden {
+		t.Errorf("silenciar a si mesmo: status %d", resposta.Code)
+	}
+
+	chamar(t, eu, http.MethodPost, fmt.Sprintf("/usuarios/%d/dessilenciar", chato), "")
+	if n := total(feed); n != 2 {
+		t.Errorf("depois de reverter: %d publicações", n)
+	}
+}

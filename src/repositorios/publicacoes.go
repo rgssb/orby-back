@@ -91,6 +91,9 @@ func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64, ab
 	if aba == "todos" {
 		filtro = postVisivel
 	}
+	// quem foi silenciado some dos feeds, mas continua nos perfis e nas buscas
+	filtro += " AND NOT EXISTS (SELECT 1 FROM silenciados sl WHERE sl.silenciador_id = ? AND sl.silenciado_id = p.autor_id)"
+	argumentos = append(argumentos, usuarioID)
 	// "Em alta": posts dos últimos 7 dias; curtidas e comentários pesam igual na pontuação
 	ordenacao := "p.id DESC"
 	if ordem == "populares" {

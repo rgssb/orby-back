@@ -54,6 +54,8 @@ var rotasUsuarios = []Rota{
 	},
 	{URI: "/usuarios/{usuarioId}/bloquear", Metodo: http.MethodPost, Funcao: controllers.BloquearUsuario, RequerAutenticacao: true},
 	{URI: "/usuarios/{usuarioId}/desbloquear", Metodo: http.MethodPost, Funcao: controllers.DesbloquearUsuario, RequerAutenticacao: true},
+	{URI: "/usuarios/{usuarioId}/silenciar", Metodo: http.MethodPost, Funcao: controllers.SilenciarUsuario, RequerAutenticacao: true},
+	{URI: "/usuarios/{usuarioId}/dessilenciar", Metodo: http.MethodPost, Funcao: controllers.DeixarDeSilenciarUsuario, RequerAutenticacao: true},
 	{URI: "/usuarios/{usuarioId}/bloqueio", Metodo: http.MethodGet, Funcao: controllers.SituacaoDeBloqueio, RequerAutenticacao: true},
 	{
 		URI:                "/usuarios/{usuarioId}/seguir",

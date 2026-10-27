@@ -116,6 +116,15 @@ func Migrar() error {
 			FOREIGN KEY (bloqueado_id) REFERENCES usuarios(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
 
+		`CREATE TABLE IF NOT EXISTS silenciados(
+			silenciador_id int not null,
+			silenciado_id int not null,
+			criadoEm timestamp default current_timestamp(),
+			PRIMARY KEY (silenciador_id, silenciado_id),
+			FOREIGN KEY (silenciador_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+			FOREIGN KEY (silenciado_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+
 		`CREATE TABLE IF NOT EXISTS reacoes_mensagens(
 			mensagem_id int not null,
 			usuario_id int not null,

@@ -9,6 +9,7 @@ API do **Orby**, uma rede social pequena feita em Go + MySQL. O front fica em [`
 - Salvos, curtidas, seguir e pedidos para seguir
 - Conta privada: só o dono e quem o segue veem posts, comentários e imagens
 - Bloqueio e direct em tempo real (SSE), com limite de mensagens até a resposta e pedido de desculpas para bloqueados
+- Silenciar usuários: as publicações somem dos feeds (sem avisar a pessoa), mas o perfil continua acessível
 - Notificações, recuperação de senha por e-mail, limite de tentativas de login
 - Fotos, banners e imagens ficam em disco (`MEDIA_DIR`), não no MySQL; arquivos órfãos são limpos a cada 24 h
 
