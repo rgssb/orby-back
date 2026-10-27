@@ -57,7 +57,7 @@ func PesquisarPublicacoes(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
-	publicacoes, erro := repositorio.Pesquisar(usuarioID, termo, hashtag, limite, deslocamento)
+	publicacoes, erro := repositorio.Pesquisar(usuarioID, termo, hashtag, r.URL.Query().Get("ordem"), limite, deslocamento)
 	if erro == nil {
 		erro = repositorio.AnexarRepostagens(publicacoes, usuarioID)
 	}

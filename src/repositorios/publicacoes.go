@@ -344,7 +344,7 @@ func (repositorio Publicacoes) alterarCurtida(publicacaoID, usuarioID uint64, cu
 
 // Pesquisar procura publicacoes por texto (titulo ou conteudo) ou, quando hashtag e verdadeiro,
 // pela hashtag exata (#tag nao casa com #tagmaior).
-func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag bool, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
+func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag bool, ordem string, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
 	var filtro string
 	argumentos := []interface{}{viewerID, viewerID}
 
@@ -359,6 +359,12 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 	}
 	argumentos = append(argumentos, viewerID, viewerID, limite, deslocamento)
 
+	// "populares": curtidas e comentários pesam igual (como no Em alta), sem limite de data
+	ordenacao := "p.id desc"
+	if ordem == "populares" {
+		ordenacao = "(p.curtidas + (select count(*) from comentarios c where c.publicacao_id = p.id)) desc, p.id desc"
+	}
+
 	linhas, erro := repositorio.db.Query(`
 		select p.*, u.nick, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
@@ -372,7 +378,7 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 		join usuarios u on u.id = p.autor_id
 		left join fotos_usuarios f on f.usuario_id = u.id
 		where `+filtro+` and `+postVisivel+`
-		order by p.id desc
+		order by `+ordenacao+`
 		limit ? offset ?`, argumentos...)
 	if erro != nil {
 		return nil, erro

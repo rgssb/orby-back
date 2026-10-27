@@ -48,7 +48,7 @@ func TestPerfilPrivadoEscondePublicacoes(t *testing.T) {
 				t.Errorf("feed 'todos': visível = %v, esperado %v", !c.ve, c.ve)
 			}
 
-			busca, erro := publicacoes.Pesquisar(c.viewer, "segredo", false, 10, 0)
+			busca, erro := publicacoes.Pesquisar(c.viewer, "segredo", false, "", 10, 0)
 			if erro != nil {
 				t.Fatal(erro)
 			}
