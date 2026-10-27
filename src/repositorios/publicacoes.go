@@ -91,11 +91,11 @@ func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64, ab
 	if aba == "todos" {
 		filtro = postVisivel
 	}
-	// "Em alta": posts dos últimos 7 dias, mais comentados primeiro; curtidas e ID desempatam
+	// "Em alta": posts dos últimos 7 dias; curtidas e comentários pesam igual na pontuação
 	ordenacao := "p.id DESC"
 	if ordem == "populares" {
 		filtro += " AND p.criadoEm >= NOW() - INTERVAL 7 DAY"
-		ordenacao = "(SELECT COUNT(*) FROM comentarios c WHERE c.publicacao_id = p.id) DESC, p.curtidas DESC, p.id DESC"
+		ordenacao = "(p.curtidas + (SELECT COUNT(*) FROM comentarios c WHERE c.publicacao_id = p.id)) DESC, p.id DESC"
 	}
 
 	consulta := `

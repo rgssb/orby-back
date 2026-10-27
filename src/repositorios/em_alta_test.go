@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestEmAltaOrdenaPorComentariosEIgnoraPostsAntigos(t *testing.T) {
+func TestEmAltaSomaCurtidasEComentariosEIgnoraPostsAntigos(t *testing.T) {
 	db := testes.NovoBanco(t)
 	autor := testes.CriarUsuario(t, db, "autor", false)
 
@@ -27,9 +27,11 @@ func TestEmAltaOrdenaPorComentariosEIgnoraPostsAntigos(t *testing.T) {
 		}
 	}
 
-	muitasCurtidas := novo(50, false)
+	maisCurtido := novo(5, false)
 	maisComentado := novo(0, false)
-	comentar(maisComentado, 3)
+	comentar(maisComentado, 6)
+	misto := novo(2, false)
+	comentar(misto, 2)
 	antigo := novo(0, true)
 	comentar(antigo, 10)
 
@@ -37,7 +39,8 @@ func TestEmAltaOrdenaPorComentariosEIgnoraPostsAntigos(t *testing.T) {
 	if erro != nil {
 		t.Fatal(erro)
 	}
-	if len(publicacoes) != 2 || publicacoes[0].ID != maisComentado || publicacoes[1].ID != muitasCurtidas {
+	// pontuação: comentado 6, curtido 5, misto 4
+	if len(publicacoes) != 3 || publicacoes[0].ID != maisComentado || publicacoes[1].ID != maisCurtido || publicacoes[2].ID != misto {
 		t.Fatalf("ordem inesperada (antigo=%d): %+v", antigo, idsDasPublicacoes(publicacoes))
 	}
 }
