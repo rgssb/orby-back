@@ -15,6 +15,13 @@ func Migrar() error {
 	}
 	defer db.Close()
 
+	// Tabelas base: num banco vazio (por exemplo, no Docker) a API cria tudo sozinha
+	for _, comando := range tabelasBase {
+		if _, erro = db.Exec(comando); erro != nil {
+			return fmt.Errorf("migracao: %w", erro)
+		}
+	}
+
 	if erro = garantirColuna(db, "usuarios", "bio", "varchar(160) not null default ''"); erro != nil {
 		return erro
 	}
@@ -194,6 +201,46 @@ func Migrar() error {
 	}
 
 	return migrarMidia(db)
+}
+
+var tabelasBase = []string{
+	`CREATE TABLE IF NOT EXISTS usuarios(
+		ID int auto_increment primary key,
+		nome varchar(50) not null,
+		nick varchar(50) not null unique,
+		email varchar(50) not null unique,
+		senha varchar(555) not null,
+		bio varchar(160) not null default '',
+		privado tinyint not null default 0,
+		criadoEm timestamp default current_timestamp()
+	) ENGINE=INNODB`,
+
+	`CREATE TABLE IF NOT EXISTS seguidores(
+		usuario_id int not null,
+		seguidor_id int not null,
+		PRIMARY KEY (usuario_id, seguidor_id),
+		FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+		FOREIGN KEY (seguidor_id) REFERENCES usuarios(id) ON DELETE CASCADE
+	) ENGINE=INNODB`,
+
+	`CREATE TABLE IF NOT EXISTS publicacoes(
+		id int auto_increment primary key,
+		titulo varchar(150) not null default '',
+		conteudo varchar(5000) not null,
+		autor_id int not null,
+		curtidas int default 0,
+		criadoEm timestamp default current_timestamp(),
+		editadoEm timestamp null default null,
+		FOREIGN KEY (autor_id) REFERENCES usuarios(id) ON DELETE CASCADE
+	) ENGINE=INNODB`,
+
+	`CREATE TABLE IF NOT EXISTS curtidas_publicacoes(
+		publicacao_id int not null,
+		usuario_id int not null,
+		PRIMARY KEY (publicacao_id, usuario_id),
+		FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE,
+		FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+	) ENGINE=INNODB`,
 }
 
 // tabelasDeMidia liga cada tipo de arquivo em disco à tabela que o registra
