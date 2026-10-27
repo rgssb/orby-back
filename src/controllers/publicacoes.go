@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"orby/api/src/autenticacao"
 	"orby/api/src/banco"
@@ -61,6 +62,9 @@ func CriarPublicacao(w http.ResponseWriter, r *http.Request) {
 	registrarNotificacao(db, func(n *repositorios.Notificacoes) error {
 		return n.NotificarMencoes(publicacao.Conteudo, publicacaoID, 0, usuarioID)
 	})
+	if erro = repositorio.AvisarNovaPublicacao(usuarioID); erro != nil {
+		log.Printf("aviso de nova publicacao: %v", erro)
+	}
 	respostas.JSON(w, http.StatusCreated, publicacao)
 
 }
