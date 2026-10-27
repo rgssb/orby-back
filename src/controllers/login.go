@@ -11,6 +11,7 @@ import (
 	"orby/api/src/repositorios"
 	"orby/api/src/respostas"
 	"orby/api/src/seguranca"
+	"orby/api/src/suspensoes"
 	"strconv"
 	"strings"
 )
@@ -54,6 +55,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limitadorDeLogin.Reiniciar(chaveDoLimitador)
+
+	if suspensoes.Suspensa(usuarioSalvoNoBanco.ID) {
+		respostas.Erro(w, http.StatusForbidden, errors.New("Esta conta foi suspensa"))
+		return
+	}
 
 	confirmado, erro := repositorio.EmailConfirmado(usuarioSalvoNoBanco.ID)
 	if erro != nil {

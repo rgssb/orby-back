@@ -37,9 +37,27 @@ var rotasNotificacoes = []Rota{
 		RequerAutenticacao: true,
 	},
 	{
-		URI:                "/admin/denuncias",
+		URI:                "/admin/eu",
 		Metodo:             http.MethodGet,
-		Funcao:             controllers.ListarPerfisDenunciados,
+		Funcao:             controllers.SouAdmin,
+		RequerAutenticacao: true,
+	},
+	{
+		URI:                "/admin/painel",
+		Metodo:             http.MethodGet,
+		Funcao:             controllers.PainelDaAdministracao,
+		RequerAutenticacao: true,
+	},
+	{
+		URI:                "/admin/usuarios/{usuarioId}/suspender",
+		Metodo:             http.MethodPost,
+		Funcao:             controllers.SuspenderUsuario,
+		RequerAutenticacao: true,
+	},
+	{
+		URI:                "/admin/usuarios/{usuarioId}/reativar",
+		Metodo:             http.MethodPost,
+		Funcao:             controllers.ReativarUsuario,
 		RequerAutenticacao: true,
 	},
 	{

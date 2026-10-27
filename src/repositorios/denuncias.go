@@ -112,15 +112,6 @@ func (repositorio Denuncias) avisarAdmins(donoID uint64, tipo string) error {
 	return erro
 }
 
-// EhAdmin diz se a pessoa é administradora
-func (repositorio Denuncias) EhAdmin(usuarioID uint64) (admin bool, erro error) {
-	erro = repositorio.db.QueryRow("select admin = 1 from usuarios where id = ?", usuarioID).Scan(&admin)
-	if errors.Is(erro, sql.ErrNoRows) {
-		return false, nil
-	}
-	return
-}
-
 // ListarPerfis devolve os perfis com denúncias abertas a partir do limite de alerta, os mais denunciados primeiro
 func (repositorio Denuncias) ListarPerfis() ([]modelos.PerfilDenunciado, error) {
 	linhas, erro := repositorio.db.Query(`

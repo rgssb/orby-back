@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"orby/api/src/autenticacao"
 	"orby/api/src/banco"
@@ -50,65 +52,134 @@ func Denunciar(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// exigirAdmin devolve o repositório quando quem chama é administrador; caso contrário já responde e devolve nil
-func exigirAdmin(w http.ResponseWriter, r *http.Request) (*repositorios.Denuncias, func()) {
+// exigirAdmin devolve a conexão quando quem chama é administrador; caso contrário já responde e devolve nil
+func exigirAdmin(w http.ResponseWriter, r *http.Request) *sql.DB {
 	eu, erro := autenticacao.ExtrairUsuarioID(r)
 	if erro != nil {
 		respostas.Erro(w, http.StatusUnauthorized, erro)
-		return nil, nil
+		return nil
 	}
 	db, erro := banco.Conectar()
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
-		return nil, nil
+		return nil
 	}
-	repositorio := repositorios.NovoRepositorioDeDenuncias(db)
-	admin, erro := repositorio.EhAdmin(eu)
+	admin, erro := repositorios.EhAdmin(db, eu)
 	if erro != nil {
 		db.Close()
 		respostas.Erro(w, http.StatusInternalServerError, erro)
-		return nil, nil
+		return nil
 	}
 	if !admin {
 		db.Close()
 		respostas.Erro(w, http.StatusForbidden, repositorios.ErrSemPermissaoDeAdmin)
-		return nil, nil
+		return nil
 	}
-	return repositorio, func() { db.Close() }
+	return db
 }
 
-// ListarPerfisDenunciados mostra à administração os perfis em alerta ou em revisão
-func ListarPerfisDenunciados(w http.ResponseWriter, r *http.Request) {
-	repositorio, fechar := exigirAdmin(w, r)
-	if repositorio == nil {
+// SouAdmin diz ao navegador se mostra as opções de administrador
+func SouAdmin(w http.ResponseWriter, r *http.Request) {
+	eu, erro := autenticacao.ExtrairUsuarioID(r)
+	if erro != nil {
+		respostas.Erro(w, http.StatusUnauthorized, erro)
 		return
 	}
-	defer fechar()
-
-	perfis, erro := repositorio.ListarPerfis()
+	db, erro := banco.Conectar()
 	if erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
 	}
-	respostas.JSON(w, http.StatusOK, perfis)
+	defer db.Close()
+	admin, erro := repositorios.EhAdmin(db, eu)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	respostas.JSON(w, http.StatusOK, map[string]bool{"admin": admin})
+}
+
+// PainelDaAdministracao reúne perfis denunciados, contas suspensas e estatísticas
+func PainelDaAdministracao(w http.ResponseWriter, r *http.Request) {
+	db := exigirAdmin(w, r)
+	if db == nil {
+		return
+	}
+	defer db.Close()
+
+	perfis, erro := repositorios.NovoRepositorioDeDenuncias(db).ListarPerfis()
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	administracao := repositorios.NovoRepositorioDeAdministracao(db)
+	suspensos, erro := administracao.ListarSuspensos()
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	estatisticas, erro := administracao.Estatisticas()
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	respostas.JSON(w, http.StatusOK, map[string]any{"denunciados": perfis, "suspensos": suspensos, "estatisticas": estatisticas})
 }
 
 // ResolverDenuncias arquiva as denúncias abertas de um perfil
 func ResolverDenuncias(w http.ResponseWriter, r *http.Request) {
-	repositorio, fechar := exigirAdmin(w, r)
-	if repositorio == nil {
+	db := exigirAdmin(w, r)
+	if db == nil {
 		return
 	}
-	defer fechar()
+	defer db.Close()
 
 	donoID, erro := strconv.ParseUint(mux.Vars(r)["usuarioId"], 10, 64)
 	if erro != nil {
 		respostas.Erro(w, http.StatusBadRequest, errors.New("Identificador inválido"))
 		return
 	}
-	if erro = repositorio.Resolver(donoID); erro != nil {
+	if erro = repositorios.NovoRepositorioDeDenuncias(db).Resolver(donoID); erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
 	}
 	respostas.JSON(w, http.StatusNoContent, nil)
 }
+
+func mudarSuspensao(w http.ResponseWriter, r *http.Request, suspender bool) {
+	db := exigirAdmin(w, r)
+	if db == nil {
+		return
+	}
+	defer db.Close()
+
+	alvoID, erro := strconv.ParseUint(mux.Vars(r)["usuarioId"], 10, 64)
+	if erro != nil {
+		respostas.Erro(w, http.StatusBadRequest, errors.New("Identificador inválido"))
+		return
+	}
+	administracao := repositorios.NovoRepositorioDeAdministracao(db)
+	if suspender {
+		erro = administracao.Suspender(alvoID)
+	} else {
+		erro = administracao.Reativar(alvoID)
+	}
+	switch {
+	case erro == nil:
+		eu, _ := autenticacao.ExtrairUsuarioID(r)
+		log.Printf("administração: usuário %d mudou a suspensão do usuário %d (suspender=%v)", eu, alvoID, suspender)
+		respostas.JSON(w, http.StatusNoContent, nil)
+	case errors.Is(erro, repositorios.ErrUsuarioNaoEncontrado):
+		respostas.Erro(w, http.StatusNotFound, erro)
+	case errors.Is(erro, repositorios.ErrNaoSuspendeAdmin):
+		respostas.Erro(w, http.StatusForbidden, erro)
+	default:
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+	}
+}
+
+// SuspenderUsuario barra a conta de usar o Orby
+func SuspenderUsuario(w http.ResponseWriter, r *http.Request) { mudarSuspensao(w, r, true) }
+
+// ReativarUsuario devolve o acesso à conta
+func ReativarUsuario(w http.ResponseWriter, r *http.Request) { mudarSuspensao(w, r, false) }

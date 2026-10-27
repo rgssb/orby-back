@@ -1,10 +1,12 @@
 package middlewares
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"orby/api/src/autenticacao"
 	"orby/api/src/respostas"
+	"orby/api/src/suspensoes"
 )
 
 // Logger escreve as informacoes da requisicao no terminal
@@ -29,6 +31,10 @@ func Autenticar(proximaFuncao http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if erro := autenticacao.ValidarToken(r); erro != nil {
 			respostas.Erro(w, http.StatusUnauthorized, erro)
+			return
+		}
+		if id, erro := autenticacao.ExtrairUsuarioID(r); erro == nil && suspensoes.Suspensa(id) {
+			respostas.Erro(w, http.StatusUnauthorized, errors.New("Esta conta foi suspensa"))
 			return
 		}
 		proximaFuncao(w, r)

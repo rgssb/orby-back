@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"orby/api/src/autenticacao"
 	"orby/api/src/banco"
@@ -218,8 +219,11 @@ func DeletarComentario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if usuarioID != comentario.AutorID && usuarioID != donoDaPublicacao {
-		respostas.Erro(w, http.StatusForbidden, errors.New("Não é possível excluir um comentário que não é seu"))
-		return
+		if admin, _ := repositorios.EhAdmin(db, usuarioID); !admin {
+			respostas.Erro(w, http.StatusForbidden, errors.New("Não é possível excluir um comentário que não é seu"))
+			return
+		}
+		log.Printf("administração: usuário %d apagou o comentário %d de %d", usuarioID, comentarioID, comentario.AutorID)
 	}
 
 	if erro = repositorio.Deletar(comentarioID); erro != nil {

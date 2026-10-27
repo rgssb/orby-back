@@ -246,8 +246,11 @@ func DeletarPublicacao(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	if publicacaoSalvaNoBanco.AutorID != usuarioID {
-		respostas.Erro(w, http.StatusForbidden, errors.New("Não é possivel apagar algo que não seja seu"))
-		return
+		if admin, _ := repositorios.EhAdmin(db, usuarioID); !admin {
+			respostas.Erro(w, http.StatusForbidden, errors.New("Não é possivel apagar algo que não seja seu"))
+			return
+		}
+		log.Printf("administração: usuário %d apagou a publicação %d de %d", usuarioID, publicacaoID, publicacaoSalvaNoBanco.AutorID)
 	}
 
 	if erro = repositorio.Deletar(publicacaoID); erro != nil {

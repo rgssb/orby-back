@@ -12,7 +12,7 @@ API do **Orby**, uma rede social pequena feita em Go + MySQL. O front fica em [`
 - Reposts (simples ou com comentário); contas privadas não podem ser repostadas
 - Conta privada: só o dono e quem o segue veem posts, comentários e imagens
 - Bloqueio e direct em tempo real (SSE), com limite de mensagens até a resposta e pedido de desculpas para bloqueados
-- Denúncias de perfis, publicações e comentários (anônimas, 1 por pessoa e alvo, até 30 por dia): com 10 pessoas diferentes o perfil entra em alerta e com 20 vai para revisão; administradores (coluna `usuarios.admin = 1`, definida direto no banco) são avisados por notificação e revisam em `/admin/denuncias` no front
+- Denúncias de perfis, publicações e comentários (anônimas, 1 por pessoa e alvo, até 30 por dia): com 10 pessoas diferentes o perfil entra em alerta e com 20 vai para revisão; administradores (coluna `usuarios.admin = 1`, definida direto no banco) são avisados por notificação e revisam em `/admin/denuncias` (painel com estatísticas, perfis denunciados e contas suspensas). Administradores também podem suspender e reativar contas (a pessoa é desconectada e não entra até ser reativada) e apagar publicações e comentários de qualquer pessoa
 - Grupos de conversa (até 67 membros, com foto, na aba Grupos das mensagens): só o criador e os organizadores adicionam pessoas, sem bloqueio com quem adiciona; se o criador sai ou apaga a conta, o posto passa ao membro mais antigo
 - Aviso em tempo real (SSE) de novas publicações para quem segue o autor (exceto quem o silenciou)
 - Silenciar usuários: as publicações somem dos feeds (sem avisar a pessoa), mas o perfil continua acessível

@@ -38,6 +38,7 @@ CREATE TABLE usuarios(
     bio varchar(160) not null default '',
     privado tinyint not null default 0,
     admin tinyint not null default 0,
+    suspenso_em timestamp null default null,
     termos_aceitos_em timestamp null default null,
     email_verificado_em timestamp null default null,
     criadoEm timestamp default current_timestamp()

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"orby/api/src/modelos"
+	"orby/api/src/suspensoes"
 	"orby/api/src/testes"
 	"testing"
 )
@@ -71,10 +72,40 @@ func TestDenunciasAlertaRevisaoEResolucao(t *testing.T) {
 	if perfis, _ := repo.ListarPerfis(); len(perfis) != 0 || avisos(modelos.NotificacaoPerfilEmRevisao) != 0 {
 		t.Fatal("resolver deveria limpar a lista e os avisos")
 	}
-	if ehAdmin, _ := repo.EhAdmin(alvo); ehAdmin {
+	if ehAdmin, _ := EhAdmin(db, alvo); ehAdmin {
 		t.Fatal("alvo não é admin")
 	}
-	if ehAdmin, _ := repo.EhAdmin(adm); !ehAdmin {
+	if ehAdmin, _ := EhAdmin(db, adm); !ehAdmin {
 		t.Fatal("adm deveria ser admin")
+	}
+}
+
+func TestAdministracaoSuspender(t *testing.T) {
+	db := testes.NovoBanco(t)
+	ana := testes.CriarUsuario(t, db, "ana", false)
+	adm := testes.CriarUsuario(t, db, "adm", false)
+	db.Exec("update usuarios set admin = 1 where id = ?", adm)
+	repo := NovoRepositorioDeAdministracao(db)
+
+	if erro := repo.Suspender(adm); !errors.Is(erro, ErrNaoSuspendeAdmin) {
+		t.Fatalf("admin não pode ser suspenso: %v", erro)
+	}
+	if erro := repo.Suspender(999999); !errors.Is(erro, ErrUsuarioNaoEncontrado) {
+		t.Fatalf("usuário inexistente: %v", erro)
+	}
+	if erro := repo.Suspender(ana); erro != nil {
+		t.Fatal(erro)
+	}
+	if !suspensoes.Suspensa(ana) {
+		t.Fatal("conta deveria constar como suspensa")
+	}
+	if contas, _ := repo.ListarSuspensos(); len(contas) != 1 || contas[0].UsuarioID != ana {
+		t.Fatalf("lista inesperada: %+v", contas)
+	}
+	if e, erro := repo.Estatisticas(); erro != nil || e.Suspensos != 1 {
+		t.Fatalf("estatísticas inesperadas: %+v %v", e, erro)
+	}
+	if erro := repo.Reativar(ana); erro != nil || suspensoes.Suspensa(ana) {
+		t.Fatalf("reativar falhou: %v", erro)
 	}
 }

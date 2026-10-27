@@ -293,6 +293,9 @@ func Migrar() error {
 	if erro = garantirColuna(db, "usuarios", "admin", "tinyint not null default 0"); erro != nil {
 		return erro
 	}
+	if erro = garantirColuna(db, "usuarios", "suspenso_em", "timestamp null default null"); erro != nil {
+		return erro
+	}
 	if erro = garantirColuna(db, "conversas", "desculpa", "tinyint not null default 0"); erro != nil {
 		return erro
 	}

@@ -7,6 +7,7 @@ import (
 	"orby/api/src/banco"
 	"orby/api/src/config"
 	"orby/api/src/router"
+	"orby/api/src/suspensoes"
 	"time"
 )
 
@@ -17,6 +18,7 @@ func main() {
 		log.Fatalf("erro ao preparar o banco de dados: %v", erro)
 	}
 
+	carregarSuspensoes()
 	limparMidiaOrfa()
 	go func() {
 		for range time.Tick(24 * time.Hour) {
@@ -46,5 +48,16 @@ func limparMidiaOrfa() {
 	}
 	if removidos > 0 {
 		log.Printf("limpeza de mídia: %d arquivo(s) órfão(s) removido(s)", removidos)
+	}
+}
+
+func carregarSuspensoes() {
+	db, erro := banco.Conectar()
+	if erro != nil {
+		log.Fatalf("suspensões: %v", erro)
+	}
+	defer db.Close()
+	if erro = suspensoes.Carregar(db); erro != nil {
+		log.Fatalf("suspensões: %v", erro)
 	}
 }
