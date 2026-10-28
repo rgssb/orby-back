@@ -56,6 +56,23 @@ func TestRotasProtegidasExigemToken(t *testing.T) {
 		if resposta := chamar(t, 0, rota[0], rota[1], ""); resposta.Code != http.StatusUnauthorized {
 			t.Errorf("%s %s sem token: status %d", rota[0], rota[1], resposta.Code)
 		}
+
+	}
+}
+
+func TestListaAdministrativaExigeAdmin(t *testing.T) {
+	db := testes.NovoBanco(t)
+	admin := testes.CriarUsuario(t, db, "admin", false)
+	pessoa := testes.CriarUsuario(t, db, "pessoa", false)
+	if _, erro := db.Exec("update usuarios set admin = 1 where id = ?", admin); erro != nil {
+		t.Fatal(erro)
+	}
+	caminho := "/admin/lista/contas?deslocamento=0"
+	if resposta := chamar(t, pessoa, http.MethodGet, caminho, ""); resposta.Code != http.StatusForbidden {
+		t.Fatalf("usuário comum: status %d", resposta.Code)
+	}
+	if resposta := chamar(t, admin, http.MethodGet, caminho, ""); resposta.Code != http.StatusOK {
+		t.Fatalf("administrador: status %d, corpo %s", resposta.Code, resposta.Body.String())
 	}
 }
 

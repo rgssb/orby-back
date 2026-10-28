@@ -37,6 +37,12 @@ var rotasNotificacoes = []Rota{
 		RequerAutenticacao: true,
 	},
 	{
+		URI:                "/denuncias/consulta",
+		Metodo:             http.MethodPost,
+		Funcao:             controllers.ConsultarDenuncias,
+		RequerAutenticacao: true,
+	},
+	{
 		URI:                "/admin/eu",
 		Metodo:             http.MethodGet,
 		Funcao:             controllers.SouAdmin,
@@ -46,6 +52,12 @@ var rotasNotificacoes = []Rota{
 		URI:                "/admin/painel",
 		Metodo:             http.MethodGet,
 		Funcao:             controllers.PainelDaAdministracao,
+		RequerAutenticacao: true,
+	},
+	{
+		URI:                "/admin/lista/{tipo}",
+		Metodo:             http.MethodGet,
+		Funcao:             controllers.ListarAdministracao,
 		RequerAutenticacao: true,
 	},
 	{

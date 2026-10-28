@@ -41,6 +41,7 @@ type MensagemDeGrupo struct {
 	RemetenteID uint64    `json:"remetenteId"`
 	Nome        string    `json:"nome"`
 	Nick        string    `json:"nick"`
+	Admin       bool      `json:"admin"`
 	Texto       string    `json:"texto"`
 	Minha       bool      `json:"minha"`
 	CriadoEm    time.Time `json:"criadoEm"`

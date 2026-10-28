@@ -126,7 +126,8 @@ func BuscarPublicacao(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	visitanteID, _ := autenticacao.ExtrairUsuarioID(r)
-	if !verificarAcessoPublicacao(w, db, publicacaoID, visitanteID) {
+	pode, moderacao := verificarLeituraPublicacao(w, db, publicacaoID, visitanteID, "publicacao")
+	if !pode {
 		return
 	}
 
@@ -150,6 +151,7 @@ func BuscarPublicacao(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	publicacao = anexadas[0]
+	publicacao.AcessoModeracao = moderacao
 
 	respostas.JSON(w, http.StatusOK, publicacao)
 
@@ -246,11 +248,30 @@ func DeletarPublicacao(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	if publicacaoSalvaNoBanco.AutorID != usuarioID {
-		if admin, _ := repositorios.EhAdmin(db, usuarioID); !admin {
+		admin, erro := repositorios.EhAdmin(db, usuarioID)
+		if erro != nil {
+			respostas.Erro(w, http.StatusInternalServerError, erro)
+			return
+		}
+		if !admin {
 			respostas.Erro(w, http.StatusForbidden, errors.New("Não é possivel apagar algo que não seja seu"))
 			return
 		}
+		erro = repositorio.DeletarDeContaSuspensa(publicacaoID)
+		switch {
+		case errors.Is(erro, repositorios.ErrContaAtiva):
+			respostas.Erro(w, http.StatusForbidden, erro)
+			return
+		case errors.Is(erro, sql.ErrNoRows):
+			respostas.Erro(w, http.StatusNotFound, errors.New("Publicação não encontrada"))
+			return
+		case erro != nil:
+			respostas.Erro(w, http.StatusInternalServerError, erro)
+			return
+		}
 		log.Printf("administração: usuário %d apagou a publicação %d de %d", usuarioID, publicacaoID, publicacaoSalvaNoBanco.AutorID)
+		respostas.JSON(w, http.StatusNoContent, nil)
+		return
 	}
 
 	if erro = repositorio.Deletar(publicacaoID); erro != nil {
@@ -283,6 +304,7 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
+	moderacao := false
 	if usuarioID != usuarioLogadoID {
 		privado, segue, _, erro := repositorios.NovoRepositorioDeUsuarios(db).Privacidade(usuarioID, usuarioLogadoID)
 		if erro != nil {
@@ -290,8 +312,19 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if privado && !segue {
-			respostas.JSON(w, http.StatusOK, []modelos.Publicacao{})
-			return
+			moderacao, erro = repositorios.EhAdmin(db, usuarioLogadoID)
+			if erro != nil {
+				respostas.Erro(w, http.StatusInternalServerError, erro)
+				return
+			}
+			if !moderacao {
+				respostas.JSON(w, http.StatusOK, []modelos.Publicacao{})
+				return
+			}
+			if erro = repositorios.RegistrarAcessoModeracao(db, usuarioLogadoID, usuarioID, 0, "perfil_publicacoes"); erro != nil {
+				respostas.Erro(w, http.StatusInternalServerError, erro)
+				return
+			}
 		}
 	}
 
@@ -305,6 +338,9 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for i := range publicacoes {
+		publicacoes[i].AcessoModeracao = moderacao
+	}
 	respostas.JSON(w, http.StatusOK, publicacoes)
 }
 

@@ -22,13 +22,17 @@ type Usuario struct {
 	Bio           string `json:"bio"`
 	FotoVersao    uint64 `json:"fotoVersao"`
 	// BannerPreset é o tema pronto escolhido para o banner ("" quando não há) e BannerVersao é diferente de 0 quando há imagem própria
-	BannerPreset string    `json:"bannerPreset"`
-	BannerVersao uint64    `json:"bannerVersao"`
-	CriadoEm     time.Time `json:"criadoEm,omitempty"`
+	BannerPreset      string    `json:"bannerPreset"`
+	BannerVersao      uint64    `json:"bannerVersao"`
+	CriadoEm          time.Time `json:"criadoEm,omitempty"`
+	Admin             bool      `json:"admin"`
+	Suspenso          bool      `json:"-"`
+	SuspensoParaAdmin *bool     `json:"suspenso,omitempty"`
 	// Privado esconde as publicações de quem não segue; os dois campos seguintes dependem de quem visita o perfil
 	Privado            bool `json:"privado"`
 	PodeVerPublicacoes bool `json:"podeVerPublicacoes"`
 	PedidoEnviado      bool `json:"pedidoEnviado"`
+	AcessoModeracao    bool `json:"acessoModeracao"`
 }
 
 // TamanhoMinimoSenha é a quantidade mínima de caracteres de uma senha

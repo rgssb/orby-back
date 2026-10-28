@@ -13,6 +13,7 @@ type Comentario struct {
 	PublicacaoID      uint64    `json:"publicacaoId,omitempty"`
 	AutorID           uint64    `json:"autorId,omitempty"`
 	AutorNick         string    `json:"autorNick,omitempty"`
+	AutorAdmin        bool      `json:"autorAdmin"`
 	AutorFotoVersao   uint64    `json:"autorFotoVersao"`
 	Conteudo          string    `json:"conteudo,omitempty"`
 	CriadoEm          time.Time `json:"criadoEm,omitempty"`

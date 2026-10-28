@@ -38,7 +38,7 @@ func BuscarComentarios(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	if !verificarAcessoPublicacao(w, db, publicacaoID, usuarioID) {
+	if pode, _ := verificarLeituraPublicacao(w, db, publicacaoID, usuarioID, "comentarios"); !pode {
 		return
 	}
 
@@ -88,7 +88,7 @@ func BuscarRespostas(w http.ResponseWriter, r *http.Request) {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
 	}
-	if !verificarAcessoPublicacao(w, db, comentario.PublicacaoID, usuarioID) {
+	if pode, _ := verificarLeituraPublicacao(w, db, comentario.PublicacaoID, usuarioID, "respostas"); !pode {
 		return
 	}
 
@@ -319,6 +319,18 @@ func alternarCurtidaDeComentario(w http.ResponseWriter, r *http.Request, curtir 
 	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDeComentarios(db)
+	comentario, _, erro := repositorio.BuscarPorID(comentarioID)
+	if errors.Is(erro, sql.ErrNoRows) {
+		respostas.Erro(w, http.StatusNotFound, errors.New("Comentário não encontrado"))
+		return
+	}
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	if !verificarAcessoPublicacao(w, db, comentario.PublicacaoID, usuarioID) {
+		return
+	}
 	if curtir {
 		erro = repositorio.Curtir(comentarioID, usuarioID)
 	} else {

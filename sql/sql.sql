@@ -25,6 +25,7 @@ DROP TABLE IF EXISTS imagens_extras_publicacoes;
 DROP TABLE IF EXISTS imagens_publicacoes;
 DROP TABLE IF EXISTS fotos_usuarios;
 DROP TABLE IF EXISTS curtidas_publicacoes;
+DROP TABLE IF EXISTS acessos_moderacao;
 DROP TABLE IF EXISTS publicacoes;
 DROP TABLE IF EXISTS seguidores;
 DROP TABLE IF EXISTS usuarios;
@@ -84,6 +85,19 @@ CREATE TABLE curtidas_publicacoes(
     FOREIGN KEY (usuario_id)
     REFERENCES usuarios(id)
     ON DELETE CASCADE
+)ENGINE=INNODB;
+
+CREATE TABLE acessos_moderacao(
+    id bigint auto_increment primary key,
+    admin_id int null,
+    alvo_id int null,
+    publicacao_id int null,
+    tipo varchar(40) not null,
+    criadoEm timestamp not null default current_timestamp(),
+    FOREIGN KEY (admin_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+    FOREIGN KEY (alvo_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+    FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE SET NULL,
+    INDEX idx_acessos_moderacao_data (criadoEm, id)
 )ENGINE=INNODB;
 
 CREATE TABLE fotos_usuarios(
@@ -248,8 +262,9 @@ CREATE TABLE denuncias(
     alvo_id int not null,
     motivo varchar(20) not null,
     resolvida tinyint not null default 0,
+    denuncia_aberta tinyint GENERATED ALWAYS AS (CASE WHEN resolvida = 0 THEN 1 ELSE NULL END) STORED,
     criadoEm timestamp default current_timestamp(),
-    UNIQUE KEY uq_denuncia (denunciante_id, tipo, alvo_id),
+    UNIQUE KEY uq_denuncia_aberta (denunciante_id, tipo, alvo_id, denuncia_aberta),
     INDEX idx_denuncias_dono (dono_id, resolvida),
     FOREIGN KEY (denunciante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (dono_id) REFERENCES usuarios(id) ON DELETE CASCADE

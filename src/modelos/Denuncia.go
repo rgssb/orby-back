@@ -9,6 +9,12 @@ const (
 	DenunciaComentario = "comentario"
 )
 
+// AlvoDeDenuncia identifica um perfil ou conteúdo denunciável.
+type AlvoDeDenuncia struct {
+	Tipo   string `json:"tipo"`
+	AlvoID uint64 `json:"alvoId"`
+}
+
 // PerfilDenunciado resume as denúncias abertas contra uma pessoa, para a revisão da administração
 type PerfilDenunciado struct {
 	UsuarioID   uint64         `json:"usuarioId"`
@@ -16,6 +22,7 @@ type PerfilDenunciado struct {
 	Nome        string         `json:"nome"`
 	Total       uint64         `json:"total"`
 	Nivel       string         `json:"nivel"`
+	Suspenso    bool           `json:"suspenso"`
 	Perfis      uint64         `json:"perfis"`
 	Publicacoes uint64         `json:"publicacoes"`
 	Comentarios uint64         `json:"comentarios"`

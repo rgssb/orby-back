@@ -100,10 +100,28 @@ func BuscarUsuario(w http.ResponseWriter, r *http.Request) {
 	if erro != nil || visitanteID != usuarioID {
 		usuario.Email = ""
 		if erro == nil {
+			ehAdmin, erro := repositorios.EhAdmin(db, visitanteID)
+			if erro != nil {
+				respostas.Erro(w, http.StatusInternalServerError, erro)
+				return
+			}
+			if ehAdmin {
+				usuario.SuspensoParaAdmin = &usuario.Suspenso
+			}
 			_, segue, pedido, erro := repositorio.Privacidade(usuarioID, visitanteID)
-			if erro == nil {
-				usuario.PodeVerPublicacoes = usuario.PodeVerPublicacoes || segue
-				usuario.PedidoEnviado = pedido
+			if erro != nil {
+				if errors.Is(erro, sql.ErrNoRows) {
+					respostas.Erro(w, http.StatusNotFound, errors.New("Usuário não encontrado"))
+				} else {
+					respostas.Erro(w, http.StatusInternalServerError, erro)
+				}
+				return
+			}
+			usuario.PodeVerPublicacoes = usuario.PodeVerPublicacoes || segue
+			usuario.PedidoEnviado = pedido
+			if usuario.Privado && !segue {
+				usuario.AcessoModeracao = ehAdmin
+				usuario.PodeVerPublicacoes = usuario.AcessoModeracao
 			}
 		}
 	} else {

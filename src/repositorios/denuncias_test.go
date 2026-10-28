@@ -61,7 +61,9 @@ func TestDenunciasAlertaRevisaoEResolucao(t *testing.T) {
 	// a mesma pessoa denunciar de novo o mesmo perfil não conta duas vezes
 	var primeiro uint64
 	db.QueryRow("select denunciante_id from denuncias limit 1").Scan(&primeiro)
-	repo.Registrar(primeiro, modelos.DenunciaPerfil, alvo, "assedio")
+	if erro := repo.Registrar(primeiro, modelos.DenunciaPerfil, alvo, "assedio"); !errors.Is(erro, ErrJaDenunciado) {
+		t.Fatalf("denúncia repetida deveria ser recusada: %v", erro)
+	}
 	if perfis, _ := repo.ListarPerfis(); perfis[0].Total != 20 {
 		t.Fatalf("denúncia repetida não pode contar: %+v", perfis)
 	}
@@ -71,6 +73,12 @@ func TestDenunciasAlertaRevisaoEResolucao(t *testing.T) {
 	}
 	if perfis, _ := repo.ListarPerfis(); len(perfis) != 0 || avisos(modelos.NotificacaoPerfilEmRevisao) != 0 {
 		t.Fatal("resolver deveria limpar a lista e os avisos")
+	}
+	if erro := repo.Registrar(primeiro, modelos.DenunciaPerfil, alvo, "spam"); erro != nil {
+		t.Fatalf("arquivamento deveria permitir nova denúncia: %v", erro)
+	}
+	if erro := repo.Registrar(primeiro, modelos.DenunciaPerfil, alvo, "spam"); !errors.Is(erro, ErrJaDenunciado) {
+		t.Fatalf("nova denúncia aberta deve impedir outra: %v", erro)
 	}
 	if ehAdmin, _ := EhAdmin(db, alvo); ehAdmin {
 		t.Fatal("alvo não é admin")

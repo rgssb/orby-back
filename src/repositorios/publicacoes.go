@@ -53,7 +53,7 @@ func (repositorio Publicacoes) BuscarPorID(publicacaoID uint64) (modelos.Publica
 	var publicacao modelos.Publicacao
 	var editadaEm sql.NullTime
 	erro := repositorio.db.QueryRow(`
-		select p.*, u.nick, `+colunaFotoVersao+`,
+		select p.*, u.nick, u.suspenso_em is not null, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
 			`+colunaTemImagem+`
 		from publicacoes p inner join usuarios u on u.id = p.autor_id
@@ -69,6 +69,7 @@ func (repositorio Publicacoes) BuscarPorID(publicacaoID uint64) (modelos.Publica
 		&publicacao.CriadaEm,
 		&editadaEm,
 		&publicacao.AutorNick,
+		&publicacao.AutorSuspenso,
 		&publicacao.AutorFotoVersao,
 		&publicacao.Comentarios,
 		&publicacao.TemImagem,
@@ -101,7 +102,7 @@ func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64, ab
 	}
 
 	consulta := `
-		SELECT p.*, u.nick, ` + colunaFotoVersao + `,
+		SELECT p.*, u.nick, u.suspenso_em is not null, ` + colunaFotoVersao + `,
 			(SELECT COUNT(*) FROM comentarios c WHERE c.publicacao_id = p.id),
 			` + colunaTemImagem + `,
 			EXISTS (
@@ -143,6 +144,7 @@ func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64, ab
 			&publicacao.CriadaEm,
 			&editadaEm,
 			&publicacao.AutorNick,
+			&publicacao.AutorSuspenso,
 			&publicacao.AutorFotoVersao,
 			&publicacao.Comentarios,
 			&publicacao.TemImagem,
@@ -224,7 +226,7 @@ func (repositorio Publicacoes) Deletar(publicacaoID uint64) error {
 // BuscarPorUsuario busca todas as publicacoes de um usuario no banco de dados
 func (repositorio Publicacoes) BuscarPorUsuario(usuarioID, viewerID uint64) ([]modelos.Publicacao, error) {
 	linhas, erro := repositorio.db.Query(`
-		select p.*, u.nick, `+colunaFotoVersao+`,
+		select p.*, u.nick, u.suspenso_em is not null, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
 			`+colunaTemImagem+`,
 			EXISTS (
@@ -259,6 +261,7 @@ func (repositorio Publicacoes) BuscarPorUsuario(usuarioID, viewerID uint64) ([]m
 			&publicacao.CriadaEm,
 			&editadaEm,
 			&publicacao.AutorNick,
+			&publicacao.AutorSuspenso,
 			&publicacao.AutorFotoVersao,
 			&publicacao.Comentarios,
 			&publicacao.TemImagem,
@@ -370,7 +373,7 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 	}
 
 	linhas, erro := repositorio.db.Query(`
-		select p.*, u.nick, `+colunaFotoVersao+`,
+		select p.*, u.nick, u.suspenso_em is not null, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
 			`+colunaTemImagem+`,
 			EXISTS (
@@ -403,6 +406,7 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 			&publicacao.CriadaEm,
 			&editadaEm,
 			&publicacao.AutorNick,
+			&publicacao.AutorSuspenso,
 			&publicacao.AutorFotoVersao,
 			&publicacao.Comentarios,
 			&publicacao.TemImagem,

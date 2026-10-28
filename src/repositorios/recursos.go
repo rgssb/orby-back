@@ -21,7 +21,7 @@ func (repositorio Publicacoes) RemoverSalvo(usuarioID, publicacaoID uint64) erro
 // BuscarSalvos traz as publicações salvas pelo usuário, da mais recentemente salva para a mais antiga
 func (repositorio Publicacoes) BuscarSalvos(usuarioID, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
 	linhas, erro := repositorio.db.Query(`
-		select p.*, u.nick, `+colunaFotoVersao+`,
+		select p.*, u.nick, u.suspenso_em is not null, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
 			`+colunaTemImagem+`,
 			EXISTS (SELECT 1 FROM curtidas_publicacoes cp WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?) AS curtido_por_usuario,
@@ -44,7 +44,7 @@ func (repositorio Publicacoes) BuscarSalvos(usuarioID, limite, deslocamento uint
 		var editadaEm sql.NullTime
 		if erro = linhas.Scan(
 			&publicacao.ID, &publicacao.Titulo, &publicacao.Conteudo, &publicacao.AutorID, &publicacao.Curtidas,
-			&publicacao.CriadaEm, &editadaEm, &publicacao.AutorNick, &publicacao.AutorFotoVersao,
+			&publicacao.CriadaEm, &editadaEm, &publicacao.AutorNick, &publicacao.AutorSuspenso, &publicacao.AutorFotoVersao,
 			&publicacao.Comentarios, &publicacao.TemImagem, &publicacao.CurtidoPorUsuario, &publicacao.SalvoPorUsuario,
 		); erro != nil {
 			return nil, erro

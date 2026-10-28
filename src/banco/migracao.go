@@ -27,6 +27,18 @@ func Migrar() error {
 	}
 
 	comandos := []string{
+		`CREATE TABLE IF NOT EXISTS acessos_moderacao(
+			id bigint auto_increment primary key,
+			admin_id int null,
+			alvo_id int null,
+			publicacao_id int null,
+			tipo varchar(40) not null,
+			criadoEm timestamp not null default current_timestamp(),
+			FOREIGN KEY (admin_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+			FOREIGN KEY (alvo_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE SET NULL,
+			INDEX idx_acessos_moderacao_data (criadoEm, id)
+		) ENGINE=INNODB`,
 		`CREATE TABLE IF NOT EXISTS fotos_usuarios(
 			usuario_id int not null primary key,
 			tipo varchar(30) not null,
@@ -149,8 +161,9 @@ func Migrar() error {
 			alvo_id int not null,
 			motivo varchar(20) not null,
 			resolvida tinyint not null default 0,
+			denuncia_aberta tinyint GENERATED ALWAYS AS (CASE WHEN resolvida = 0 THEN 1 ELSE NULL END) STORED,
 			criadoEm timestamp default current_timestamp(),
-			UNIQUE KEY uq_denuncia (denunciante_id, tipo, alvo_id),
+			UNIQUE KEY uq_denuncia_aberta (denunciante_id, tipo, alvo_id, denuncia_aberta),
 			INDEX idx_denuncias_dono (dono_id, resolvida),
 			FOREIGN KEY (denunciante_id) REFERENCES usuarios(id) ON DELETE CASCADE,
 			FOREIGN KEY (dono_id) REFERENCES usuarios(id) ON DELETE CASCADE
@@ -252,6 +265,10 @@ func Migrar() error {
 		}
 	}
 
+	if erro = migrarUnicidadeDeDenuncias(db); erro != nil {
+		return fmt.Errorf("migracao de denuncias: %w", erro)
+	}
+
 	// Avisos de novo seguidor não pertencem a nenhuma publicação
 	if _, erro = db.Exec("alter table notificacoes modify publicacao_id int null"); erro != nil {
 		return fmt.Errorf("migracao: %w", erro)
@@ -320,6 +337,32 @@ func Migrar() error {
 	}
 
 	return migrarMidia(db)
+}
+
+func migrarUnicidadeDeDenuncias(db *sql.DB) error {
+	if erro := garantirColuna(db, "denuncias", "denuncia_aberta", "tinyint generated always as (case when resolvida = 0 then 1 else null end) stored"); erro != nil {
+		return erro
+	}
+	var antigo, novo int
+	if erro := db.QueryRow(`select
+		count(distinct case when index_name = 'uq_denuncia' then index_name end),
+		count(distinct case when index_name = 'uq_denuncia_aberta' then index_name end)
+		from information_schema.statistics where table_schema = database() and table_name = 'denuncias'`).Scan(&antigo, &novo); erro != nil {
+		return erro
+	}
+	if antigo > 0 && novo == 0 {
+		_, erro := db.Exec("alter table denuncias add unique key uq_denuncia_aberta (denunciante_id, tipo, alvo_id, denuncia_aberta), drop index uq_denuncia")
+		return erro
+	}
+	if antigo > 0 {
+		_, erro := db.Exec("alter table denuncias drop index uq_denuncia")
+		return erro
+	}
+	if novo == 0 {
+		_, erro := db.Exec("alter table denuncias add unique key uq_denuncia_aberta (denunciante_id, tipo, alvo_id, denuncia_aberta)")
+		return erro
+	}
+	return nil
 }
 
 var tabelasBase = []string{

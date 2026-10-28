@@ -174,8 +174,8 @@ func (repositorio Mensagens) Abrir(eu, outro, apos, antes uint64) (modelos.Dialo
 	dialogo := modelos.Dialogo{Mensagens: []modelos.Mensagem{}}
 
 	erro := repositorio.db.QueryRow(
-		"select u.id, u.nome, u.nick, "+colunaFotoVersao+" from usuarios u left join fotos_usuarios f on f.usuario_id = u.id where u.id = ?", outro,
-	).Scan(&dialogo.UsuarioID, &dialogo.Nome, &dialogo.Nick, &dialogo.FotoVersao)
+		"select u.id, u.nome, u.nick, u.admin, "+colunaFotoVersao+" from usuarios u left join fotos_usuarios f on f.usuario_id = u.id where u.id = ?", outro,
+	).Scan(&dialogo.UsuarioID, &dialogo.Nome, &dialogo.Nick, &dialogo.Admin, &dialogo.FotoVersao)
 	if errors.Is(erro, sql.ErrNoRows) {
 		return dialogo, ErrUsuarioInexistente
 	}

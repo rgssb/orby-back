@@ -90,7 +90,7 @@ func (repositorio usuarios) Buscar(nomeOuNick string) ([]modelos.Usuario, error)
 // BuscarPorID traz um usuario do Banco de dados
 func (repositorio usuarios) BuscarPorID(ID uint64) (modelos.Usuario, error) {
 	linhas, erro := repositorio.db.Query(
-		`select u.id, u.nome, u.nick, u.email, u.bio, u.criadoEm, u.privado, `+colunaFotoVersao+`,
+		`select u.id, u.nome, u.nick, u.email, u.bio, u.criadoEm, u.privado, u.admin, u.suspenso_em is not null, `+colunaFotoVersao+`,
 		coalesce(b.preset, ''), cast(if(b.tipo is null, 0, unix_timestamp(b.atualizadoEm)) as unsigned)
 		from usuarios u left join fotos_usuarios f on f.usuario_id = u.id
 		left join banners_usuarios b on b.usuario_id = u.id
@@ -113,6 +113,8 @@ func (repositorio usuarios) BuscarPorID(ID uint64) (modelos.Usuario, error) {
 			&usuario.Bio,
 			&usuario.CriadoEm,
 			&usuario.Privado,
+			&usuario.Admin,
+			&usuario.Suspenso,
 			&usuario.FotoVersao,
 			&usuario.BannerPreset,
 			&usuario.BannerVersao,

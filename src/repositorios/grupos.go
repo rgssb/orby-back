@@ -220,7 +220,7 @@ func (repositorio Grupos) Abrir(eu, grupoID, apos uint64) (modelos.DialogoDeGrup
 
 	consulta := `
 		select * from (
-			select n.id, n.remetente_id, u.nome, u.nick, n.texto, n.criadoEm
+			select n.id, n.remetente_id, u.nome, u.nick, u.admin, n.texto, n.criadoEm
 			from grupo_mensagens n join usuarios u on u.id = n.remetente_id
 			where n.grupo_id = ? and n.id > ? order by n.id desc limit ?
 		) t order by id`
@@ -233,7 +233,7 @@ func (repositorio Grupos) Abrir(eu, grupoID, apos uint64) (modelos.DialogoDeGrup
 	var ultimoID uint64
 	for linhas.Next() {
 		var m modelos.MensagemDeGrupo
-		if erro = linhas.Scan(&m.ID, &m.RemetenteID, &m.Nome, &m.Nick, &m.Texto, &m.CriadoEm); erro != nil {
+		if erro = linhas.Scan(&m.ID, &m.RemetenteID, &m.Nome, &m.Nick, &m.Admin, &m.Texto, &m.CriadoEm); erro != nil {
 			return dialogo, erro
 		}
 		m.Minha = m.RemetenteID == eu
@@ -262,8 +262,8 @@ func (repositorio Grupos) Enviar(eu, grupoID uint64, texto string) (modelos.Mens
 	}
 	id, _ := resultado.LastInsertId()
 	erro = repositorio.db.QueryRow(
-		"select n.id, n.remetente_id, u.nome, u.nick, n.texto, n.criadoEm from grupo_mensagens n join usuarios u on u.id = n.remetente_id where n.id = ?", id,
-	).Scan(&mensagem.ID, &mensagem.RemetenteID, &mensagem.Nome, &mensagem.Nick, &mensagem.Texto, &mensagem.CriadoEm)
+		"select n.id, n.remetente_id, u.nome, u.nick, u.admin, n.texto, n.criadoEm from grupo_mensagens n join usuarios u on u.id = n.remetente_id where n.id = ?", id,
+	).Scan(&mensagem.ID, &mensagem.RemetenteID, &mensagem.Nome, &mensagem.Nick, &mensagem.Admin, &mensagem.Texto, &mensagem.CriadoEm)
 	if erro != nil {
 		return mensagem, erro
 	}

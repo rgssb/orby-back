@@ -115,7 +115,7 @@ func (repositorio Comentarios) BuscarRespostas(comentarioID, usuarioID, limite, 
 
 func (repositorio Comentarios) listar(filtro string, referenciaID, usuarioID, limite, deslocamento uint64) ([]modelos.Comentario, error) {
 	consulta := `
-		select c.id, c.publicacao_id, c.autor_id, u.nick, ` + colunaFotoVersao + `, c.conteudo, c.criadoEm,
+		select c.id, c.publicacao_id, c.autor_id, u.nick, u.admin, ` + colunaFotoVersao + `, c.conteudo, c.criadoEm,
 			c.editadoEm is not null,
 			(select count(*) from curtidas_comentarios cc where cc.comentario_id = c.id),
 			exists(select 1 from curtidas_comentarios cc where cc.comentario_id = c.id and cc.usuario_id = ?),
@@ -150,6 +150,7 @@ func (repositorio Comentarios) listar(filtro string, referenciaID, usuarioID, li
 			&comentario.PublicacaoID,
 			&comentario.AutorID,
 			&comentario.AutorNick,
+			&comentario.AutorAdmin,
 			&comentario.AutorFotoVersao,
 			&comentario.Conteudo,
 			&comentario.CriadoEm,

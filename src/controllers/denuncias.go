@@ -38,9 +38,12 @@ func Denunciar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	switch erro = repositorios.NovoRepositorioDeDenuncias(db).Registrar(eu, corpo.Tipo, corpo.AlvoID, corpo.Motivo); {
+	donoID, erro := repositorios.NovoRepositorioDeDenuncias(db).RegistrarComDono(eu, corpo.Tipo, corpo.AlvoID, corpo.Motivo)
+	switch {
 	case erro == nil:
-		respostas.JSON(w, http.StatusNoContent, nil)
+		respostas.JSON(w, http.StatusOK, map[string]uint64{"usuarioId": donoID})
+	case errors.Is(erro, repositorios.ErrJaDenunciado):
+		respostas.Erro(w, http.StatusConflict, erro)
 	case errors.Is(erro, repositorios.ErrDenunciaInvalida), errors.Is(erro, repositorios.ErrDenunciaPropria):
 		respostas.Erro(w, http.StatusBadRequest, erro)
 	case errors.Is(erro, repositorios.ErrDenunciaNaoAchada):
@@ -105,6 +108,7 @@ func PainelDaAdministracao(w http.ResponseWriter, r *http.Request) {
 	if db == nil {
 		return
 	}
+
 	defer db.Close()
 
 	perfis, erro := repositorios.NovoRepositorioDeDenuncias(db).ListarPerfis()
@@ -183,3 +187,41 @@ func SuspenderUsuario(w http.ResponseWriter, r *http.Request) { mudarSuspensao(w
 
 // ReativarUsuario devolve o acesso à conta
 func ReativarUsuario(w http.ResponseWriter, r *http.Request) { mudarSuspensao(w, r, false) }
+
+// ListarAdministracao fornece listagens paginadas somente a administradores.
+func ListarAdministracao(w http.ResponseWriter, r *http.Request) {
+	tipo := mux.Vars(r)["tipo"]
+	switch tipo {
+	case "contas", "novas", "publicacoes", "comentarios", "denunciadas", "suspensas":
+	default:
+		respostas.Erro(w, http.StatusNotFound, errors.New("Listagem não encontrada"))
+		return
+	}
+	deslocamento, erro := strconv.ParseUint(r.URL.Query().Get("deslocamento"), 10, 64)
+	if erro != nil {
+		respostas.Erro(w, http.StatusBadRequest, errors.New("Deslocamento inválido"))
+		return
+	}
+	db := exigirAdmin(w, r)
+	if db == nil {
+		return
+	}
+	defer db.Close()
+	itens, erro := repositorios.NovoRepositorioDeAdministracao(db).Listar(tipo, r.URL.Query().Get("q"), deslocamento)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	if tipo == "publicacoes" || tipo == "comentarios" {
+		adminID, erro := autenticacao.ExtrairUsuarioID(r)
+		if erro != nil {
+			respostas.Erro(w, http.StatusUnauthorized, erro)
+			return
+		}
+		if erro = repositorios.RegistrarListaModeracao(db, adminID, tipo, itens); erro != nil {
+			respostas.Erro(w, http.StatusInternalServerError, erro)
+			return
+		}
+	}
+	respostas.JSON(w, http.StatusOK, itens)
+}

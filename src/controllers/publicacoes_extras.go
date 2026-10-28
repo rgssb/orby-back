@@ -95,7 +95,7 @@ func BuscarImagemDaPublicacao(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	visitanteID, _ := autenticacao.ExtrairUsuarioID(r)
-	if !verificarAcessoPublicacao(w, db, publicacaoID, visitanteID) {
+	if pode, _ := verificarLeituraPublicacao(w, db, publicacaoID, visitanteID, "imagem"); !pode {
 		return
 	}
 
@@ -227,6 +227,7 @@ func verificarAcessoPublicacao(w http.ResponseWriter, db *sql.DB, publicacaoID, 
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return false
 	}
+
 	if !pode {
 		respostas.Erro(w, http.StatusNotFound, errors.New("Publicação não encontrada"))
 		return false

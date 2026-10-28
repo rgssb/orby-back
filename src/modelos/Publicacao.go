@@ -14,6 +14,7 @@ type Publicacao struct {
 	Conteudo            string              `json:"conteudo,omitempty"`
 	AutorID             uint64              `json:"autorId,omitempty"`
 	AutorNick           string              `json:"autorNick,omitempty"`
+	AutorSuspenso       bool                `json:"autorSuspenso"`
 	AutorFotoVersao     uint64              `json:"autorFotoVersao"`
 	Curtidas            uint64              `json:"curtidas"`
 	Comentarios         uint64              `json:"comentarios"`
@@ -26,6 +27,7 @@ type Publicacao struct {
 	Reposts             uint64              `json:"reposts"`
 	RepostadoPorUsuario bool                `json:"repostadoPorUsuario"`
 	RepostDe            *PublicacaoOriginal `json:"repostDe,omitempty"`
+	AcessoModeracao     bool                `json:"acessoModeracao"`
 }
 
 // PublicacaoOriginal é a publicação repostada, embutida no repost. Indisponivel vale quando quem vê não tem acesso a ela.

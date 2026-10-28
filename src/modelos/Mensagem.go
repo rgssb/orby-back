@@ -48,6 +48,7 @@ type Conversa struct {
 	UsuarioID      uint64    `json:"usuarioId"`
 	Nome           string    `json:"nome"`
 	Nick           string    `json:"nick"`
+	Admin          bool      `json:"admin"`
 	FotoVersao     uint64    `json:"fotoVersao"`
 	UltimaMensagem string    `json:"ultimaMensagem"`
 	UltimaMinha    bool      `json:"ultimaMinha"`
