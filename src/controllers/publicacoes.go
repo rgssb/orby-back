@@ -62,7 +62,12 @@ func CriarPublicacao(w http.ResponseWriter, r *http.Request) {
 	registrarNotificacao(db, func(n *repositorios.Notificacoes) error {
 		return n.NotificarMencoes(publicacao.Conteudo, publicacaoID, 0, usuarioID)
 	})
-	if erro = repositorio.AvisarNovaPublicacao(usuarioID); erro != nil {
+	if publicacao.Felas {
+		erro = repositorio.AvisarNovaPublicacaoFelas(usuarioID)
+	} else {
+		erro = repositorio.AvisarNovaPublicacao(usuarioID)
+	}
+	if erro != nil {
 		log.Printf("aviso de nova publicacao: %v", erro)
 	}
 	respostas.JSON(w, http.StatusCreated, publicacao)
@@ -305,18 +310,20 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	moderacao := false
+	admin := false
 	if usuarioID != usuarioLogadoID {
+		admin, erro = repositorios.EhAdmin(db, usuarioLogadoID)
+		if erro != nil {
+			respostas.Erro(w, http.StatusInternalServerError, erro)
+			return
+		}
 		privado, segue, _, erro := repositorios.NovoRepositorioDeUsuarios(db).Privacidade(usuarioID, usuarioLogadoID)
 		if erro != nil {
 			respostas.Erro(w, http.StatusInternalServerError, erro)
 			return
 		}
 		if privado && !segue {
-			moderacao, erro = repositorios.EhAdmin(db, usuarioLogadoID)
-			if erro != nil {
-				respostas.Erro(w, http.StatusInternalServerError, erro)
-				return
-			}
+			moderacao = admin
 			if !moderacao {
 				respostas.JSON(w, http.StatusOK, []modelos.Publicacao{})
 				return
@@ -329,7 +336,12 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
-	publicacoes, erro := repositorio.BuscarPorUsuario(usuarioID, usuarioLogadoID)
+	var publicacoes []modelos.Publicacao
+	if admin {
+		publicacoes, erro = repositorio.BuscarPorUsuarioModeracao(usuarioID, usuarioLogadoID)
+	} else {
+		publicacoes, erro = repositorio.BuscarPorUsuario(usuarioID, usuarioLogadoID)
+	}
 	if erro == nil {
 		erro = repositorio.AnexarRepostagens(publicacoes, usuarioLogadoID)
 	}
@@ -339,7 +351,22 @@ func BuscarPublicacoesPorUsuario(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i := range publicacoes {
-		publicacoes[i].AcessoModeracao = moderacao
+		if admin {
+			visivel, erro := repositorio.PodeVer(publicacoes[i].ID, usuarioLogadoID)
+			if erro != nil {
+				respostas.Erro(w, http.StatusInternalServerError, erro)
+				return
+			}
+			if !visivel {
+				if !moderacao {
+					if erro = repositorios.RegistrarAcessoModeracao(db, usuarioLogadoID, usuarioID, publicacoes[i].ID, "perfil_publicacao"); erro != nil {
+						respostas.Erro(w, http.StatusInternalServerError, erro)
+						return
+					}
+				}
+				publicacoes[i].AcessoModeracao = true
+			}
+		}
 	}
 	respostas.JSON(w, http.StatusOK, publicacoes)
 }

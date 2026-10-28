@@ -57,11 +57,38 @@ func (repositorio Comentarios) ResolverPai(publicacaoID, comentarioID uint64) (p
 
 // Criar insere um comentario (ou uma resposta, quando ParentID esta preenchido) e retorna o seu ID
 func (repositorio Comentarios) Criar(comentario modelos.Comentario) (uint64, error) {
+	tx, erro := repositorio.db.Begin()
+	if erro != nil {
+		return 0, erro
+	}
+	defer tx.Rollback()
+	var dono, autorPai uint64
+	if erro = tx.QueryRow("select autor_id from publicacoes where id = ?", comentario.PublicacaoID).Scan(&dono); erro != nil {
+		return 0, erro
+	}
 	var parentID interface{}
 	if comentario.ParentID != 0 {
 		parentID = comentario.ParentID
+		if erro = tx.QueryRow("select autor_id from comentarios where id = ? and publicacao_id = ?", comentario.ParentID, comentario.PublicacaoID).Scan(&autorPai); erro != nil {
+			return 0, erro
+		}
 	}
-	resultado, erro := repositorio.db.Exec(
+	if autorPai == 0 {
+		autorPai = dono
+	}
+	if erro = travarUsuarios(tx, dono, autorPai); erro != nil {
+		return 0, erro
+	}
+	for _, alvo := range []uint64{dono, autorPai} {
+		permitido, erro := PermiteInteracao(tx, alvo, comentario.AutorID, "comentarios")
+		if erro != nil {
+			return 0, erro
+		}
+		if !permitido {
+			return 0, ErrPrivacidadeInteracao
+		}
+	}
+	resultado, erro := tx.Exec(
 		"insert into comentarios (publicacao_id, autor_id, conteudo, parent_id) values (?, ?, ?, ?)",
 		comentario.PublicacaoID, comentario.AutorID, comentario.Conteudo, parentID,
 	)
@@ -73,7 +100,9 @@ func (repositorio Comentarios) Criar(comentario modelos.Comentario) (uint64, err
 	if erro != nil {
 		return 0, erro
 	}
-
+	if erro = tx.Commit(); erro != nil {
+		return 0, erro
+	}
 	return uint64(ultimoID), nil
 }
 

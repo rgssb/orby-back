@@ -9,6 +9,7 @@ DROP TABLE IF EXISTS grupo_membros;
 DROP TABLE IF EXISTS grupos;
 DROP TABLE IF EXISTS reacoes_mensagens;
 DROP TABLE IF EXISTS imagens_mensagens;
+DROP TABLE IF EXISTS notificacoes_silenciadas;
 DROP TABLE IF EXISTS notificacoes;
 DROP TABLE IF EXISTS verificacoes_email;
 DROP TABLE IF EXISTS redefinicoes_senha;
@@ -26,6 +27,10 @@ DROP TABLE IF EXISTS imagens_publicacoes;
 DROP TABLE IF EXISTS fotos_usuarios;
 DROP TABLE IF EXISTS curtidas_publicacoes;
 DROP TABLE IF EXISTS acessos_moderacao;
+DROP TABLE IF EXISTS acoes_moderacao;
+DROP TABLE IF EXISTS publicacoes_felas;
+DROP TABLE IF EXISTS felas;
+DROP TABLE IF EXISTS preferencias_privacidade;
 DROP TABLE IF EXISTS publicacoes;
 DROP TABLE IF EXISTS seguidores;
 DROP TABLE IF EXISTS usuarios;
@@ -74,6 +79,27 @@ CREATE TABLE publicacoes(
     editadoEm timestamp null default null,
     INDEX idx_publicacoes_criado (criadoEm)
 )ENGINE=INNODB;
+
+CREATE TABLE felas(
+    dono_id int not null,
+    membro_id int not null,
+    PRIMARY KEY (dono_id, membro_id),
+    FOREIGN KEY (dono_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (membro_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE preferencias_privacidade(
+    usuario_id int not null primary key,
+    mensagens varchar(16) not null default 'todos',
+    mencoes varchar(16) not null default 'todos',
+    comentarios varchar(16) not null default 'todos',
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE publicacoes_felas(
+    publicacao_id int not null primary key,
+    FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
+) ENGINE=INNODB;
 
 CREATE TABLE curtidas_publicacoes(
     publicacao_id int not null,
@@ -158,6 +184,24 @@ CREATE TABLE redefinicoes_senha(
     REFERENCES usuarios(id)
     ON DELETE CASCADE
 )ENGINE=INNODB;
+
+CREATE TABLE notificacoes_silenciadas(
+    usuario_id int not null,
+    tipo varchar(30) not null,
+    PRIMARY KEY (usuario_id, tipo),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE acoes_moderacao(
+    id bigint auto_increment primary key,
+    admin_id int null,
+    alvo_id int null,
+    acao varchar(24) not null,
+    criadoEm timestamp not null default current_timestamp(),
+    FOREIGN KEY (admin_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+    FOREIGN KEY (alvo_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+    INDEX idx_acoes_moderacao_alvo (alvo_id, id)
+) ENGINE=INNODB;
 
 CREATE TABLE notificacoes(
     id int auto_increment primary key,

@@ -54,13 +54,16 @@ func (repositorio Denuncias) RegistrarComDono(denuncianteID uint64, tipo string,
 		return 0, ErrDenunciaInvalida
 	}
 	var consulta string
+	argumentos := []interface{}{alvoID}
 	switch tipo {
 	case modelos.DenunciaPerfil:
 		consulta = "select id from usuarios where id = ?"
 	case modelos.DenunciaPublicacao:
-		consulta = "select autor_id from publicacoes where id = ?"
+		consulta = "select p.autor_id from publicacoes p join usuarios u on u.id = p.autor_id where p.id = ? and " + postVisivel
+		argumentos = append(argumentos, denuncianteID, denuncianteID, denuncianteID, denuncianteID)
 	case modelos.DenunciaComentario:
-		consulta = "select autor_id from comentarios where id = ?"
+		consulta = "select c.autor_id from comentarios c join publicacoes p on p.id = c.publicacao_id join usuarios u on u.id = p.autor_id where c.id = ? and " + postVisivel
+		argumentos = append(argumentos, denuncianteID, denuncianteID, denuncianteID, denuncianteID)
 	default:
 		return 0, ErrDenunciaInvalida
 	}
@@ -71,7 +74,7 @@ func (repositorio Denuncias) RegistrarComDono(denuncianteID uint64, tipo string,
 	}
 	defer tx.Rollback()
 	var donoID uint64
-	if erro := tx.QueryRow(consulta, alvoID).Scan(&donoID); erro != nil {
+	if erro := tx.QueryRow(consulta, argumentos...).Scan(&donoID); erro != nil {
 		if errors.Is(erro, sql.ErrNoRows) {
 			return 0, ErrDenunciaNaoAchada
 		}
@@ -227,6 +230,14 @@ func (repositorio Denuncias) ListarPerfis() ([]modelos.PerfilDenunciado, error) 
 
 // Resolver arquiva as denúncias abertas contra a pessoa e limpa os avisos dos administradores
 func (repositorio Denuncias) Resolver(donoID uint64) error {
+	return repositorio.resolver(donoID, 0)
+}
+
+func (repositorio Denuncias) ResolverPorAdmin(donoID, adminID uint64) error {
+	return repositorio.resolver(donoID, adminID)
+}
+
+func (repositorio Denuncias) resolver(donoID, adminID uint64) error {
 	tx, erro := repositorio.db.Begin()
 	if erro != nil {
 		return erro
@@ -234,6 +245,11 @@ func (repositorio Denuncias) Resolver(donoID uint64) error {
 	defer tx.Rollback()
 	if erro = resolverDenuncias(tx, donoID); erro != nil {
 		return erro
+	}
+	if adminID != 0 {
+		if erro = registrarAcaoModeracao(tx, adminID, donoID, "arquivar"); erro != nil {
+			return erro
+		}
 	}
 	return tx.Commit()
 }

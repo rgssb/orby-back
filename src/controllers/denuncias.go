@@ -143,7 +143,8 @@ func ResolverDenuncias(w http.ResponseWriter, r *http.Request) {
 		respostas.Erro(w, http.StatusBadRequest, errors.New("Identificador inválido"))
 		return
 	}
-	if erro = repositorios.NovoRepositorioDeDenuncias(db).Resolver(donoID); erro != nil {
+	eu, _ := autenticacao.ExtrairUsuarioID(r)
+	if erro = repositorios.NovoRepositorioDeDenuncias(db).ResolverPorAdmin(donoID, eu); erro != nil {
 		respostas.Erro(w, http.StatusInternalServerError, erro)
 		return
 	}
@@ -163,14 +164,14 @@ func mudarSuspensao(w http.ResponseWriter, r *http.Request, suspender bool) {
 		return
 	}
 	administracao := repositorios.NovoRepositorioDeAdministracao(db)
+	eu, _ := autenticacao.ExtrairUsuarioID(r)
 	if suspender {
-		erro = administracao.Suspender(alvoID)
+		erro = administracao.SuspenderPorAdmin(alvoID, eu)
 	} else {
-		erro = administracao.Reativar(alvoID)
+		erro = administracao.ReativarPorAdmin(alvoID, eu)
 	}
 	switch {
 	case erro == nil:
-		eu, _ := autenticacao.ExtrairUsuarioID(r)
 		log.Printf("administração: usuário %d mudou a suspensão do usuário %d (suspender=%v)", eu, alvoID, suspender)
 		respostas.JSON(w, http.StatusNoContent, nil)
 	case errors.Is(erro, repositorios.ErrUsuarioNaoEncontrado):

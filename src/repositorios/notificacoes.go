@@ -4,9 +4,12 @@ import (
 	"database/sql"
 	"orby/api/src/modelos"
 	"regexp"
+	"strings"
 )
 
 var expressaoDeMencao = regexp.MustCompile(`(?:^|[^\w@])@([A-Za-z0-9_]{1,50})`)
+
+var publicacaoVisivelNaNotificacao = strings.ReplaceAll(strings.ReplaceAll(postVisivel, "u.", "dono."), "?", "n.usuario_id")
 
 // Notificacoes representa um repositorio de notificacoes
 type Notificacoes struct {
@@ -160,8 +163,11 @@ func (repositorio Notificacoes) Listar(usuarioID, limite, deslocamento uint64) (
 		from notificacoes n
 		inner join usuarios u on u.id = n.ator_id
 		left join publicacoes p on p.id = n.publicacao_id
+		left join usuarios dono on dono.id = p.autor_id
 		left join fotos_usuarios f on f.usuario_id = u.id
 		where n.usuario_id = ?
+		and not exists (select 1 from notificacoes_silenciadas ns where ns.usuario_id = n.usuario_id and ns.tipo = n.tipo)
+		and (n.publicacao_id is null or (p.id is not null and `+publicacaoVisivelNaNotificacao+`))
 		order by n.id desc
 		limit ? offset ?`, usuarioID, limite, deslocamento,
 	)
@@ -189,14 +195,24 @@ func (repositorio Notificacoes) Listar(usuarioID, limite, deslocamento uint64) (
 func (repositorio Notificacoes) ContarNaoLidas(usuarioID uint64) (uint64, error) {
 	var total uint64
 	erro := repositorio.db.QueryRow(
-		"select count(*) from notificacoes where usuario_id = ? and lida = false", usuarioID,
+		`select count(*) from notificacoes n
+		left join publicacoes p on p.id = n.publicacao_id
+		left join usuarios dono on dono.id = p.autor_id
+		where n.usuario_id = ? and n.lida = false
+		and not exists (select 1 from notificacoes_silenciadas ns where ns.usuario_id = n.usuario_id and ns.tipo = n.tipo)
+		and (n.publicacao_id is null or (p.id is not null and `+publicacaoVisivelNaNotificacao+`))`, usuarioID,
 	).Scan(&total)
 	return total, erro
 }
 
-// MarcarTodasComoLidas marca como lidas todas as notificacoes do usuario
+// MarcarTodasComoLidas marca como lidas as notificações visíveis do usuário.
 func (repositorio Notificacoes) MarcarTodasComoLidas(usuarioID uint64) error {
-	_, erro := repositorio.db.Exec("update notificacoes set lida = true where usuario_id = ? and lida = false", usuarioID)
+	_, erro := repositorio.db.Exec(`update notificacoes n
+		left join publicacoes p on p.id = n.publicacao_id
+		left join usuarios dono on dono.id = p.autor_id
+		set n.lida = true where n.usuario_id = ? and n.lida = false
+		and not exists (select 1 from notificacoes_silenciadas ns where ns.usuario_id = n.usuario_id and ns.tipo = n.tipo)
+		and (n.publicacao_id is null or (p.id is not null and `+publicacaoVisivelNaNotificacao+`))`, usuarioID)
 	return erro
 }
 
@@ -214,8 +230,14 @@ func (repositorio Notificacoes) NotificarMencoes(texto string, publicacaoID, com
 	consulta := `
 		insert into notificacoes (usuario_id, ator_id, tipo, publicacao_id, comentario_id)
 		select u.id, ?, ?, ?, ? from usuarios u
-		where replace(u.nick, ' ', '') = ? and u.id <> ?` + filtroDoDono + `
-		order by u.nick = ? desc limit 1`
+		where u.id = (select candidato.id from usuarios candidato where replace(candidato.nick, ' ', '') = ?
+			order by candidato.nick = ? desc limit 1) and u.id <> ?` + filtroDoDono + `
+		and (coalesce((select mencoes from preferencias_privacidade where usuario_id = u.id), 'todos') = 'todos'
+			or (coalesce((select mencoes from preferencias_privacidade where usuario_id = u.id), 'todos') = 'seguindo'
+				and exists(select 1 from seguidores where usuario_id = ? and seguidor_id = u.id)))
+		and exists (select 1 from publicacoes p join usuarios dono on dono.id = p.autor_id
+			where p.id = ? and ` + strings.ReplaceAll(strings.ReplaceAll(postVisivel, "u.", "dono."), "?", "u.id") + `)
+		limit 1`
 
 	vistos := map[string]bool{}
 	for _, achado := range expressaoDeMencao.FindAllStringSubmatch(texto, -1) {
@@ -225,11 +247,11 @@ func (repositorio Notificacoes) NotificarMencoes(texto string, publicacaoID, com
 		}
 		vistos[nick] = true
 
-		argumentos := []interface{}{atorID, modelos.NotificacaoMencao, publicacaoID, comentario, nick, atorID}
+		argumentos := []interface{}{atorID, modelos.NotificacaoMencao, publicacaoID, comentario, nick, nick, atorID}
 		if comentarioID != 0 {
 			argumentos = append(argumentos, publicacaoID)
 		}
-		argumentos = append(argumentos, nick)
+		argumentos = append(argumentos, atorID, publicacaoID)
 		if _, erro := repositorio.db.Exec(consulta, argumentos...); erro != nil {
 			return erro
 		}

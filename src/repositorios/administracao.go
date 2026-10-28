@@ -35,8 +35,21 @@ func NovoRepositorioDeAdministracao(db *sql.DB) *Administracao {
 
 // Suspender impede a conta de entrar e de usar o Orby até ser reativada; o conteúdo dela é mantido
 func (repositorio Administracao) Suspender(usuarioID uint64) error {
-	var admin bool
-	if erro := repositorio.db.QueryRow("select admin = 1 from usuarios where id = ?", usuarioID).Scan(&admin); erro != nil {
+	return repositorio.suspender(usuarioID, 0)
+}
+
+func (repositorio Administracao) SuspenderPorAdmin(usuarioID, adminID uint64) error {
+	return repositorio.suspender(usuarioID, adminID)
+}
+
+func (repositorio Administracao) suspender(usuarioID, adminID uint64) error {
+	tx, erro := repositorio.db.Begin()
+	if erro != nil {
+		return erro
+	}
+	defer tx.Rollback()
+	var admin, suspensa bool
+	if erro = tx.QueryRow("select admin = 1, suspenso_em is not null from usuarios where id = ? for update", usuarioID).Scan(&admin, &suspensa); erro != nil {
 		if errors.Is(erro, sql.ErrNoRows) {
 			return ErrUsuarioNaoEncontrado
 		}
@@ -45,7 +58,15 @@ func (repositorio Administracao) Suspender(usuarioID uint64) error {
 	if admin {
 		return ErrNaoSuspendeAdmin
 	}
-	if _, erro := repositorio.db.Exec("update usuarios set suspenso_em = coalesce(suspenso_em, now()) where id = ?", usuarioID); erro != nil {
+	if _, erro = tx.Exec("update usuarios set suspenso_em = coalesce(suspenso_em, now()) where id = ?", usuarioID); erro != nil {
+		return erro
+	}
+	if !suspensa && adminID != 0 {
+		if erro = registrarAcaoModeracao(tx, adminID, usuarioID, "suspender"); erro != nil {
+			return erro
+		}
+	}
+	if erro = tx.Commit(); erro != nil {
 		return erro
 	}
 	suspensoes.Definir(usuarioID, true)
@@ -54,6 +75,14 @@ func (repositorio Administracao) Suspender(usuarioID uint64) error {
 
 // Reativar devolve o acesso à conta
 func (repositorio Administracao) Reativar(usuarioID uint64) error {
+	return repositorio.reativar(usuarioID, 0)
+}
+
+func (repositorio Administracao) ReativarPorAdmin(usuarioID, adminID uint64) error {
+	return repositorio.reativar(usuarioID, adminID)
+}
+
+func (repositorio Administracao) reativar(usuarioID, adminID uint64) error {
 	tx, erro := repositorio.db.Begin()
 	if erro != nil {
 		return erro
@@ -69,6 +98,11 @@ func (repositorio Administracao) Reativar(usuarioID uint64) error {
 	if suspensa {
 		if erro = resolverDenuncias(tx, usuarioID); erro != nil {
 			return erro
+		}
+		if adminID != 0 {
+			if erro = registrarAcaoModeracao(tx, adminID, usuarioID, "reativar"); erro != nil {
+				return erro
+			}
 		}
 	}
 	if _, erro = tx.Exec("update usuarios set suspenso_em = null where id = ?", usuarioID); erro != nil {
@@ -131,12 +165,12 @@ func (repositorio Administracao) Listar(tipo, busca string, deslocamento uint64)
 		consulta = `select u.id, u.id, u.nome, u.nick, '', '', ` + data + `, 0, 0, u.suspenso_em is not null
 			from usuarios u where (u.nome like ? or u.nick like ?)` + filtro + ` order by ` + data + ` desc, u.id desc limit 16 offset ?`
 	case "publicacoes":
-		consulta = `select p.id, u.id, u.nome, u.nick, p.titulo, p.conteudo, p.criadoEm, 0, if(u.privado = 1, u.id, 0), u.suspenso_em is not null
+		consulta = `select p.id, u.id, u.nome, u.nick, p.titulo, p.conteudo, p.criadoEm, 0, if(u.privado = 1 or exists (select 1 from publicacoes_felas pf where pf.publicacao_id = p.id), u.id, 0), u.suspenso_em is not null
 			from publicacoes p join usuarios u on u.id = p.autor_id
 			where (u.nome like ? or u.nick like ? or p.titulo like ? or p.conteudo like ?)
 			order by p.id desc limit 16 offset ?`
 	case "comentarios":
-		consulta = `select c.publicacao_id, u.id, u.nome, u.nick, '', c.conteudo, c.criadoEm, 0, if(dono.privado = 1, dono.id, 0), u.suspenso_em is not null
+		consulta = `select c.publicacao_id, u.id, u.nome, u.nick, '', c.conteudo, c.criadoEm, 0, if(dono.privado = 1 or exists (select 1 from publicacoes_felas pf where pf.publicacao_id = p.id), dono.id, 0), u.suspenso_em is not null
 			from comentarios c join usuarios u on u.id = c.autor_id
 			join publicacoes p on p.id = c.publicacao_id join usuarios dono on dono.id = p.autor_id
 			where (u.nome like ? or u.nick like ? or c.conteudo like ?)

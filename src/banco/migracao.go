@@ -27,6 +27,24 @@ func Migrar() error {
 	}
 
 	comandos := []string{
+		`CREATE TABLE IF NOT EXISTS preferencias_privacidade(
+			usuario_id int not null primary key,
+			mensagens varchar(16) not null default 'todos',
+			mencoes varchar(16) not null default 'todos',
+			comentarios varchar(16) not null default 'todos',
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS felas(
+			dono_id int not null,
+			membro_id int not null,
+			PRIMARY KEY (dono_id, membro_id),
+			FOREIGN KEY (dono_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+			FOREIGN KEY (membro_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS publicacoes_felas(
+			publicacao_id int not null primary key,
+			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
 		`CREATE TABLE IF NOT EXISTS acessos_moderacao(
 			id bigint auto_increment primary key,
 			admin_id int null,
@@ -38,6 +56,16 @@ func Migrar() error {
 			FOREIGN KEY (alvo_id) REFERENCES usuarios(id) ON DELETE SET NULL,
 			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE SET NULL,
 			INDEX idx_acessos_moderacao_data (criadoEm, id)
+		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS acoes_moderacao(
+			id bigint auto_increment primary key,
+			admin_id int null,
+			alvo_id int null,
+			acao varchar(24) not null,
+			criadoEm timestamp not null default current_timestamp(),
+			FOREIGN KEY (admin_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+			FOREIGN KEY (alvo_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+			INDEX idx_acoes_moderacao_alvo (alvo_id, id)
 		) ENGINE=INNODB`,
 		`CREATE TABLE IF NOT EXISTS fotos_usuarios(
 			usuario_id int not null primary key,
@@ -70,6 +98,13 @@ func Migrar() error {
 			usuario_id int not null,
 			PRIMARY KEY (comentario_id, usuario_id),
 			FOREIGN KEY (comentario_id) REFERENCES comentarios(id) ON DELETE CASCADE,
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+
+		`CREATE TABLE IF NOT EXISTS notificacoes_silenciadas(
+			usuario_id int not null,
+			tipo varchar(30) not null,
+			PRIMARY KEY (usuario_id, tipo),
 			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
 

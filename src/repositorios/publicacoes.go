@@ -8,8 +8,13 @@ import (
 )
 
 // colunaTemImagem informa se a publicacao possui imagem anexada
-// postVisivel filtra publicações de perfis privados: só o dono e quem o segue as veem (usa o viewer duas vezes)
-const postVisivel = "(u.privado = 0 OR u.id = ? OR EXISTS (SELECT 1 FROM seguidores sx WHERE sx.usuario_id = u.id AND sx.seguidor_id = ?))"
+// postVisivel exige acesso ao perfil e, para publicações Felas, participação na lista.
+// Recebe o ID do visitante quatro vezes. A tabela da publicação deve ter o alias p.
+const postVisivel = `(u.privado = 0 OR u.id = ? OR EXISTS (SELECT 1 FROM seguidores sx WHERE sx.usuario_id = u.id AND sx.seguidor_id = ?))
+	AND (NOT EXISTS (SELECT 1 FROM publicacoes_felas pf WHERE pf.publicacao_id = p.id) OR u.id = ?
+		OR EXISTS (SELECT 1 FROM felas fl WHERE fl.dono_id = u.id AND fl.membro_id = ?
+			AND NOT EXISTS (SELECT 1 FROM bloqueios b WHERE (b.bloqueador_id = fl.dono_id AND b.bloqueado_id = fl.membro_id)
+				OR (b.bloqueador_id = fl.membro_id AND b.bloqueado_id = fl.dono_id))))`
 
 const colunaTemImagem = "exists(select 1 from imagens_publicacoes ip where ip.publicacao_id = p.id)"
 
@@ -25,17 +30,12 @@ func NovoRepositorioDePublicacoes(db *sql.DB) *Publicacoes {
 
 // Criar insere uma publicacao no banco de dados
 func (repositorio *Publicacoes) Criar(publicacao modelos.Publicacao) (uint64, error) {
-	statement, erro := repositorio.db.Prepare(
-		"insert into publicacoes (titulo, conteudo, autor_id) VALUES (?, ?, ?)",
-	)
-
+	transacao, erro := repositorio.db.Begin()
 	if erro != nil {
 		return 0, erro
 	}
-
-	defer statement.Close()
-
-	resultado, erro := statement.Exec(publicacao.Titulo, publicacao.Conteudo, publicacao.AutorID)
+	defer transacao.Rollback()
+	resultado, erro := transacao.Exec("insert into publicacoes (titulo, conteudo, autor_id) VALUES (?, ?, ?)", publicacao.Titulo, publicacao.Conteudo, publicacao.AutorID)
 	if erro != nil {
 		return 0, erro
 	}
@@ -45,6 +45,14 @@ func (repositorio *Publicacoes) Criar(publicacao modelos.Publicacao) (uint64, er
 		return 0, erro
 	}
 
+	if publicacao.Felas {
+		if _, erro = transacao.Exec("insert into publicacoes_felas (publicacao_id) values (?)", ultimoID); erro != nil {
+			return 0, erro
+		}
+	}
+	if erro = transacao.Commit(); erro != nil {
+		return 0, erro
+	}
 	return uint64(ultimoID), nil
 }
 
@@ -55,7 +63,8 @@ func (repositorio Publicacoes) BuscarPorID(publicacaoID uint64) (modelos.Publica
 	erro := repositorio.db.QueryRow(`
 		select p.*, u.nick, u.suspenso_em is not null, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
-			`+colunaTemImagem+`
+			`+colunaTemImagem+`,
+			exists(select 1 from publicacoes_felas pf where pf.publicacao_id = p.id)
 		from publicacoes p inner join usuarios u on u.id = p.autor_id
 		left join fotos_usuarios f on f.usuario_id = u.id
 		where p.id = ?`,
@@ -73,6 +82,7 @@ func (repositorio Publicacoes) BuscarPorID(publicacaoID uint64) (modelos.Publica
 		&publicacao.AutorFotoVersao,
 		&publicacao.Comentarios,
 		&publicacao.TemImagem,
+		&publicacao.Felas,
 	)
 	if erro != nil {
 		return modelos.Publicacao{}, erro
@@ -90,6 +100,13 @@ func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64, ab
 	argumentos := []interface{}{usuarioID, usuarioID, usuarioID, usuarioID}
 	if aba == "todos" {
 		filtro = postVisivel
+		argumentos = append(argumentos, usuarioID, usuarioID)
+	} else if aba == "felas" {
+		filtro = "EXISTS (SELECT 1 FROM publicacoes_felas pf WHERE pf.publicacao_id = p.id) AND " + postVisivel
+		argumentos = append(argumentos, usuarioID, usuarioID)
+	} else {
+		filtro += " AND " + postVisivel
+		argumentos = append(argumentos, usuarioID, usuarioID, usuarioID, usuarioID)
 	}
 	// quem foi silenciado some dos feeds, mas continua nos perfis e nas buscas
 	filtro += " AND NOT EXISTS (SELECT 1 FROM silenciados sl WHERE sl.silenciador_id = ? AND sl.silenciado_id = p.autor_id)"
@@ -105,6 +122,7 @@ func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64, ab
 		SELECT p.*, u.nick, u.suspenso_em is not null, ` + colunaFotoVersao + `,
 			(SELECT COUNT(*) FROM comentarios c WHERE c.publicacao_id = p.id),
 			` + colunaTemImagem + `,
+			EXISTS (SELECT 1 FROM publicacoes_felas pf WHERE pf.publicacao_id = p.id),
 			EXISTS (
 				SELECT 1 FROM curtidas_publicacoes cp
 				WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?
@@ -148,6 +166,7 @@ func (repositorio Publicacoes) Buscar(usuarioID, limite, deslocamento uint64, ab
 			&publicacao.AutorFotoVersao,
 			&publicacao.Comentarios,
 			&publicacao.TemImagem,
+			&publicacao.Felas,
 			&publicacao.CurtidoPorUsuario,
 			&publicacao.SalvoPorUsuario,
 		); erro != nil {
@@ -225,10 +244,25 @@ func (repositorio Publicacoes) Deletar(publicacaoID uint64) error {
 
 // BuscarPorUsuario busca todas as publicacoes de um usuario no banco de dados
 func (repositorio Publicacoes) BuscarPorUsuario(usuarioID, viewerID uint64) ([]modelos.Publicacao, error) {
+	return repositorio.buscarPorUsuario(usuarioID, viewerID, false)
+}
+
+func (repositorio Publicacoes) BuscarPorUsuarioModeracao(usuarioID, viewerID uint64) ([]modelos.Publicacao, error) {
+	return repositorio.buscarPorUsuario(usuarioID, viewerID, true)
+}
+
+func (repositorio Publicacoes) buscarPorUsuario(usuarioID, viewerID uint64, moderacao bool) ([]modelos.Publicacao, error) {
+	filtro := " and " + postVisivel
+	args := []interface{}{viewerID, viewerID, usuarioID, viewerID, viewerID, viewerID, viewerID}
+	if moderacao {
+		filtro = ""
+		args = args[:3]
+	}
 	linhas, erro := repositorio.db.Query(`
 		select p.*, u.nick, u.suspenso_em is not null, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
 			`+colunaTemImagem+`,
+			exists(select 1 from publicacoes_felas pf where pf.publicacao_id = p.id),
 			EXISTS (
 				SELECT 1 FROM curtidas_publicacoes cp
 				WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?
@@ -237,8 +271,8 @@ func (repositorio Publicacoes) BuscarPorUsuario(usuarioID, viewerID uint64) ([]m
 		from publicacoes p
 		join usuarios u on u.id = p.autor_id
 		left join fotos_usuarios f on f.usuario_id = u.id
-		where p.autor_id = ?
-		order by p.id desc`, viewerID, viewerID, usuarioID)
+		where p.autor_id = ?`+filtro+`
+		order by p.id desc`, args...)
 
 	if erro != nil {
 		return nil, erro
@@ -265,6 +299,7 @@ func (repositorio Publicacoes) BuscarPorUsuario(usuarioID, viewerID uint64) ([]m
 			&publicacao.AutorFotoVersao,
 			&publicacao.Comentarios,
 			&publicacao.TemImagem,
+			&publicacao.Felas,
 			&publicacao.CurtidoPorUsuario,
 			&publicacao.SalvoPorUsuario,
 		); erro != nil {
@@ -364,7 +399,7 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 		padrao := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(termo) + "%"
 		argumentos = append(argumentos, padrao, padrao)
 	}
-	argumentos = append(argumentos, viewerID, viewerID, limite, deslocamento)
+	argumentos = append(argumentos, viewerID, viewerID, viewerID, viewerID, limite, deslocamento)
 
 	// "populares": curtidas e comentários pesam igual (como no Em alta), sem limite de data
 	ordenacao := "p.id desc"
@@ -376,6 +411,7 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 		select p.*, u.nick, u.suspenso_em is not null, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
 			`+colunaTemImagem+`,
+			exists(select 1 from publicacoes_felas pf where pf.publicacao_id = p.id),
 			EXISTS (
 				SELECT 1 FROM curtidas_publicacoes cp
 				WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?
@@ -410,6 +446,7 @@ func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag 
 			&publicacao.AutorFotoVersao,
 			&publicacao.Comentarios,
 			&publicacao.TemImagem,
+			&publicacao.Felas,
 			&publicacao.CurtidoPorUsuario,
 			&publicacao.SalvoPorUsuario,
 		); erro != nil {
@@ -429,7 +466,7 @@ func (repositorio Publicacoes) PodeVer(publicacaoID, visitanteID uint64) (bool, 
 	erro := repositorio.db.QueryRow(`
 		select 1 from publicacoes p
 		inner join usuarios u on u.id = p.autor_id
-		where p.id = ? and `+postVisivel, publicacaoID, visitanteID, visitanteID).Scan(&visivel)
+		where p.id = ? and `+postVisivel, publicacaoID, visitanteID, visitanteID, visitanteID, visitanteID).Scan(&visivel)
 	if erro == sql.ErrNoRows {
 		return false, nil
 	}

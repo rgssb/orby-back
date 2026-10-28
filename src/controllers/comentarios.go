@@ -161,6 +161,10 @@ func CriarComentario(w http.ResponseWriter, r *http.Request) {
 
 	comentario.ID, erro = repositorioDeComentarios.Criar(comentario)
 	if erro != nil {
+		if errors.Is(erro, repositorios.ErrPrivacidadeInteracao) {
+			respostas.Erro(w, http.StatusForbidden, erro)
+			return
+		}
 		var erroMySQL *mysql.MySQLError
 		if errors.As(erro, &erroMySQL) && erroMySQL.Number == 1452 {
 			respostas.Erro(w, http.StatusNotFound, errors.New("Publicação não encontrada"))

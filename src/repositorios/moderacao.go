@@ -23,7 +23,7 @@ func AutorizarLeituraModeracao(db *sql.DB, adminID, publicacaoID uint64, tipo st
 		select p.autor_id from publicacoes p
 		join usuarios u on u.id = p.autor_id
 		join usuarios admin on admin.id = ? and admin.admin = 1
-		where p.id = ? and u.privado = 1`, adminID, publicacaoID).Scan(&alvoID)
+		where p.id = ? and (u.privado = 1 or exists (select 1 from publicacoes_felas pf where pf.publicacao_id = p.id))`, adminID, publicacaoID).Scan(&alvoID)
 	if errors.Is(erro, sql.ErrNoRows) {
 		return false, nil
 	}

@@ -6,6 +6,9 @@ import (
 )
 
 var rotasNotificacoes = []Rota{
+	{URI: "/admin/usuarios/{usuarioId}/denuncias", Metodo: http.MethodGet, Funcao: controllers.DetalhesDeDenuncias, RequerAutenticacao: true},
+	{URI: "/notificacoes/preferencias", Metodo: http.MethodGet, Funcao: controllers.PreferenciasDeNotificacao, RequerAutenticacao: true},
+	{URI: "/notificacoes/preferencias", Metodo: http.MethodPut, Funcao: controllers.PreferenciasDeNotificacao, RequerAutenticacao: true},
 	{
 		URI:                "/notificacoes",
 		Metodo:             http.MethodGet,

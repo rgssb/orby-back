@@ -24,6 +24,7 @@ func (repositorio Publicacoes) BuscarSalvos(usuarioID, limite, deslocamento uint
 		select p.*, u.nick, u.suspenso_em is not null, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
 			`+colunaTemImagem+`,
+			exists(select 1 from publicacoes_felas pf where pf.publicacao_id = p.id),
 			EXISTS (SELECT 1 FROM curtidas_publicacoes cp WHERE cp.publicacao_id = p.id AND cp.usuario_id = ?) AS curtido_por_usuario,
 			true AS salvo_por_usuario
 		from salvos sv
@@ -32,7 +33,7 @@ func (repositorio Publicacoes) BuscarSalvos(usuarioID, limite, deslocamento uint
 		left join fotos_usuarios f on f.usuario_id = u.id
 		where sv.usuario_id = ? and `+postVisivel+`
 		order by sv.criadoEm desc, p.id desc
-		limit ? offset ?`, usuarioID, usuarioID, usuarioID, usuarioID, limite, deslocamento)
+		limit ? offset ?`, usuarioID, usuarioID, usuarioID, usuarioID, usuarioID, usuarioID, limite, deslocamento)
 	if erro != nil {
 		return nil, erro
 	}
@@ -45,7 +46,7 @@ func (repositorio Publicacoes) BuscarSalvos(usuarioID, limite, deslocamento uint
 		if erro = linhas.Scan(
 			&publicacao.ID, &publicacao.Titulo, &publicacao.Conteudo, &publicacao.AutorID, &publicacao.Curtidas,
 			&publicacao.CriadaEm, &editadaEm, &publicacao.AutorNick, &publicacao.AutorSuspenso, &publicacao.AutorFotoVersao,
-			&publicacao.Comentarios, &publicacao.TemImagem, &publicacao.CurtidoPorUsuario, &publicacao.SalvoPorUsuario,
+			&publicacao.Comentarios, &publicacao.TemImagem, &publicacao.Felas, &publicacao.CurtidoPorUsuario, &publicacao.SalvoPorUsuario,
 		); erro != nil {
 			return nil, erro
 		}

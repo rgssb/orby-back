@@ -249,26 +249,70 @@ func (repositorio Grupos) Abrir(eu, grupoID, apos uint64) (modelos.DialogoDeGrup
 // Enviar publica uma mensagem no grupo e avisa os outros membros
 func (repositorio Grupos) Enviar(eu, grupoID uint64, texto string) (modelos.MensagemDeGrupo, error) {
 	var mensagem modelos.MensagemDeGrupo
-	membro, _, _, erro := repositorio.papel(repositorio.db, eu, grupoID)
+	transacao, erro := repositorio.db.Begin()
+	if erro != nil {
+		return mensagem, erro
+	}
+	defer transacao.Rollback()
+	var travado uint64
+	if erro = transacao.QueryRow("select id from grupos where id = ? for update", grupoID).Scan(&travado); errors.Is(erro, sql.ErrNoRows) {
+		return mensagem, ErrGrupoInexistente
+	} else if erro != nil {
+		return mensagem, erro
+	}
+	membro, _, _, erro := repositorio.papel(transacao, eu, grupoID)
 	if erro != nil {
 		return mensagem, erro
 	}
 	if !membro {
 		return mensagem, ErrGrupoInexistente
 	}
-	resultado, erro := repositorio.db.Exec("insert into grupo_mensagens (grupo_id, remetente_id, texto) values (?, ?, ?)", grupoID, eu, texto)
+	linhas, erro := transacao.Query(`select u.id from usuarios u join grupo_membros m on m.usuario_id = u.id
+		where m.grupo_id = ? and u.id <> ? order by u.id for update`, grupoID, eu)
+	if erro != nil {
+		return mensagem, erro
+	}
+	var destinatarios []uint64
+	for linhas.Next() {
+		var id uint64
+		if erro = linhas.Scan(&id); erro != nil {
+			linhas.Close()
+			return mensagem, erro
+		}
+		destinatarios = append(destinatarios, id)
+	}
+	erro = linhas.Err()
+	linhas.Close()
+	if erro != nil {
+		return mensagem, erro
+	}
+	for _, destinatario := range destinatarios {
+		permitido, erro := PermiteInteracao(transacao, destinatario, eu, "mensagens")
+		if erro != nil {
+			return mensagem, erro
+		}
+		if !permitido {
+			return mensagem, ErrPrivacidadeInteracao
+		}
+	}
+	resultado, erro := transacao.Exec("insert into grupo_mensagens (grupo_id, remetente_id, texto) values (?, ?, ?)", grupoID, eu, texto)
 	if erro != nil {
 		return mensagem, erro
 	}
 	id, _ := resultado.LastInsertId()
-	erro = repositorio.db.QueryRow(
+	erro = transacao.QueryRow(
 		"select n.id, n.remetente_id, u.nome, u.nick, u.admin, n.texto, n.criadoEm from grupo_mensagens n join usuarios u on u.id = n.remetente_id where n.id = ?", id,
 	).Scan(&mensagem.ID, &mensagem.RemetenteID, &mensagem.Nome, &mensagem.Nick, &mensagem.Admin, &mensagem.Texto, &mensagem.CriadoEm)
 	if erro != nil {
 		return mensagem, erro
 	}
 	mensagem.Minha = true
-	_, _ = repositorio.db.Exec("update grupo_membros set lida_ate = ? where grupo_id = ? and usuario_id = ?", mensagem.ID, grupoID, eu)
+	if _, erro = transacao.Exec("update grupo_membros set lida_ate = ? where grupo_id = ? and usuario_id = ?", mensagem.ID, grupoID, eu); erro != nil {
+		return mensagem, erro
+	}
+	if erro = transacao.Commit(); erro != nil {
+		return mensagem, erro
+	}
 	repositorio.avisar(grupoID, eu)
 	return mensagem, nil
 }

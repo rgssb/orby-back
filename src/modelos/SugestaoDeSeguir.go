@@ -10,4 +10,5 @@ type SugestaoDeSeguir struct {
 	Privado    bool   `json:"privado"`
 	EmComum    int    `json:"emComum"`
 	Via        string `json:"via"`
+	Motivo     string `json:"motivo,omitempty"`
 }

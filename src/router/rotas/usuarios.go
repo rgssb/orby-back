@@ -6,6 +6,13 @@ import (
 )
 
 var rotasUsuarios = []Rota{
+	{URI: "/privacidade/interacoes", Metodo: http.MethodGet, Funcao: controllers.PreferenciasDePrivacidade, RequerAutenticacao: true},
+	{URI: "/privacidade/interacoes", Metodo: http.MethodPut, Funcao: controllers.PreferenciasDePrivacidade, RequerAutenticacao: true},
+	{URI: "/mencoes/visibilidade", Metodo: http.MethodPost, Funcao: controllers.VisibilidadeDasMencoes, RequerAutenticacao: true},
+	{URI: "/felas", Metodo: http.MethodGet, Funcao: controllers.GerenciarFelas, RequerAutenticacao: true},
+	{URI: "/felas/{usuarioId}", Metodo: http.MethodGet, Funcao: controllers.GerenciarFelas, RequerAutenticacao: true},
+	{URI: "/felas/{usuarioId}", Metodo: http.MethodPut, Funcao: controllers.GerenciarFelas, RequerAutenticacao: true},
+	{URI: "/felas/{usuarioId}", Metodo: http.MethodDelete, Funcao: controllers.GerenciarFelas, RequerAutenticacao: true},
 	{URI: "/usuarios/pedidos", Metodo: http.MethodGet, Funcao: controllers.BuscarPedidosParaSeguir, RequerAutenticacao: true},
 	{URI: "/usuarios/{usuarioId}/pedido/aceitar", Metodo: http.MethodPost, Funcao: controllers.AceitarPedidoParaSeguir, RequerAutenticacao: true},
 	{URI: "/usuarios/{usuarioId}/pedido/recusar", Metodo: http.MethodPost, Funcao: controllers.RecusarPedidoParaSeguir, RequerAutenticacao: true},

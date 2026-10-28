@@ -28,6 +28,7 @@ type Publicacao struct {
 	RepostadoPorUsuario bool                `json:"repostadoPorUsuario"`
 	RepostDe            *PublicacaoOriginal `json:"repostDe,omitempty"`
 	AcessoModeracao     bool                `json:"acessoModeracao"`
+	Felas               bool                `json:"felas"`
 }
 
 // PublicacaoOriginal é a publicação repostada, embutida no repost. Indisponivel vale quando quem vê não tem acesso a ela.

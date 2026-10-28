@@ -62,7 +62,7 @@ func Repostar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !pode {
-		respostas.Erro(w, http.StatusForbidden, errors.New("Publicações de contas privadas não podem ser repostadas"))
+		respostas.Erro(w, http.StatusForbidden, errors.New("Esta publicação não pode ser repostada por ser privada ou exclusiva para Felas"))
 		return
 	}
 

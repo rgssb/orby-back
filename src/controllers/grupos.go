@@ -22,7 +22,7 @@ func erroDeGrupo(w http.ResponseWriter, erro error) {
 		respostas.Erro(w, http.StatusNotFound, erro)
 	case errors.Is(erro, repositorios.ErrGrupoSemMembros):
 		respostas.Erro(w, http.StatusBadRequest, erro)
-	case errors.Is(erro, repositorios.ErrSemPermissao), errors.Is(erro, repositorios.ErrBloqueado):
+	case errors.Is(erro, repositorios.ErrSemPermissao), errors.Is(erro, repositorios.ErrBloqueado), errors.Is(erro, repositorios.ErrPrivacidadeInteracao):
 		respostas.Erro(w, http.StatusForbidden, erro)
 	case errors.Is(erro, repositorios.ErrGrupoCheio), errors.Is(erro, repositorios.ErrJaEMembro):
 		respostas.Erro(w, http.StatusConflict, erro)

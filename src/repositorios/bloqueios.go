@@ -20,11 +20,20 @@ func (repositorio Bloqueios) Bloquear(bloqueadorID, bloqueadoID uint64) error {
 	}
 	defer transacao.Rollback()
 
+	if erro = travarUsuarios(transacao, bloqueadorID, bloqueadoID); erro != nil {
+		return erro
+	}
 	if _, erro = transacao.Exec("insert ignore into bloqueios (bloqueador_id, bloqueado_id) values (?, ?)", bloqueadorID, bloqueadoID); erro != nil {
 		return erro
 	}
 	if _, erro = transacao.Exec(
 		"delete from seguidores where (usuario_id = ? and seguidor_id = ?) or (usuario_id = ? and seguidor_id = ?)",
+		bloqueadorID, bloqueadoID, bloqueadoID, bloqueadorID,
+	); erro != nil {
+		return erro
+	}
+	if _, erro = transacao.Exec(
+		"delete from felas where (dono_id = ? and membro_id = ?) or (dono_id = ? and membro_id = ?)",
 		bloqueadorID, bloqueadoID, bloqueadoID, bloqueadorID,
 	); erro != nil {
 		return erro

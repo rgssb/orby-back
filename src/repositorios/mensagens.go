@@ -307,6 +307,13 @@ func (repositorio Mensagens) Enviar(eu, outro uint64, texto string, respondeA ui
 	}
 	defer transacao.Rollback()
 
+	permitido, erro := PermiteInteracao(transacao, outro, eu, "mensagens")
+	if erro != nil {
+		return mensagem, erro
+	}
+	if !permitido {
+		return mensagem, ErrPrivacidadeInteracao
+	}
 	menor, maior := ordenar(eu, outro)
 	if _, erro = transacao.Exec(
 		"insert ignore into conversas (usuario_menor, usuario_maior, iniciada_por) values (?, ?, ?)", menor, maior, eu,
@@ -537,6 +544,13 @@ func (repositorio Mensagens) SalvarImagem(eu, mensagemID uint64, tipo string, da
 	outro, erro := repositorio.participante(eu, mensagemID)
 	if erro != nil {
 		return erro
+	}
+	permitido, erro := PermiteInteracao(repositorio.db, outro, eu, "mensagens")
+	if erro != nil {
+		return erro
+	}
+	if !permitido {
+		return ErrPrivacidadeInteracao
 	}
 	if erro = midia.Gravar(midia.Mensagens, mensagemID, dados); erro != nil {
 		return erro

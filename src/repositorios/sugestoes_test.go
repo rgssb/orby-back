@@ -67,3 +67,45 @@ func TestSugerirSeguirCompletaComMaisSeguidosSemRepetir(t *testing.T) {
 		t.Fatalf("preenchimento não deveria ter pessoas em comum: %+v", sugestoes[1])
 	}
 }
+
+func TestSugerirSeguirConsideraInteracoesPublicasESilenciamentos(t *testing.T) {
+	db := testes.NovoBanco(t)
+	eu := testes.CriarUsuario(t, db, "eu", false)
+	interessante := testes.CriarUsuario(t, db, "interessante", false)
+	privado := testes.CriarUsuario(t, db, "privado", true)
+	silenciado := testes.CriarUsuario(t, db, "silenciado", false)
+	suspenso := testes.CriarUsuario(t, db, "suspenso", false)
+	popular := testes.CriarUsuario(t, db, "popular", false)
+	fa := testes.CriarUsuario(t, db, "fa", false)
+	if _, erro := db.Exec("insert into seguidores (usuario_id, seguidor_id) values (?, ?)", popular, fa); erro != nil {
+		t.Fatal(erro)
+	}
+	if _, erro := db.Exec("insert into silenciados (silenciador_id, silenciado_id) values (?, ?)", eu, silenciado); erro != nil {
+		t.Fatal(erro)
+	}
+	if _, erro := db.Exec("update usuarios set suspenso_em = now() where id = ?", suspenso); erro != nil {
+		t.Fatal(erro)
+	}
+	for _, autor := range []uint64{interessante, privado, silenciado} {
+		resultado, erro := db.Exec("insert into publicacoes (conteudo, autor_id) values ('conteudo', ?)", autor)
+		if erro != nil {
+			t.Fatal(erro)
+		}
+		id, _ := resultado.LastInsertId()
+		if _, erro = db.Exec("insert into curtidas_publicacoes (publicacao_id, usuario_id) values (?, ?)", id, eu); erro != nil {
+			t.Fatal(erro)
+		}
+	}
+	sugestoes, erro := NovoRepositorioDeUsuarios(db).SugerirSeguir(eu, 5)
+	if erro != nil {
+		t.Fatal(erro)
+	}
+	if len(sugestoes) != 4 || sugestoes[0].ID != interessante || sugestoes[1].ID != popular {
+		t.Fatalf("ordem ou filtros inesperados: %+v", sugestoes)
+	}
+	for _, sugestao := range sugestoes {
+		if sugestao.ID == silenciado || sugestao.ID == suspenso {
+			t.Fatalf("conta silenciada ou suspensa sugerida: %+v", sugestoes)
+		}
+	}
+}

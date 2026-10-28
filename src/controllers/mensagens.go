@@ -43,7 +43,7 @@ func erroDeMensagem(w http.ResponseWriter, erro error) {
 		respostas.Erro(w, http.StatusNotFound, erro)
 	case errors.Is(erro, repositorios.ErrMensagemParaSiMesmo), errors.Is(erro, repositorios.ErrRespostaInvalida):
 		respostas.Erro(w, http.StatusBadRequest, erro)
-	case errors.Is(erro, repositorios.ErrAguardandoAceite), errors.Is(erro, repositorios.ErrBloqueado), errors.Is(erro, repositorios.ErrPedidoEncerrado):
+	case errors.Is(erro, repositorios.ErrAguardandoAceite), errors.Is(erro, repositorios.ErrBloqueado), errors.Is(erro, repositorios.ErrPedidoEncerrado), errors.Is(erro, repositorios.ErrPrivacidadeInteracao):
 		respostas.Erro(w, http.StatusForbidden, erro)
 	default:
 		respostas.Erro(w, http.StatusInternalServerError, erro)

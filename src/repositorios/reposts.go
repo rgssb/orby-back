@@ -11,7 +11,8 @@ func (repositorio Publicacoes) PodeRepostar(publicacaoID, usuarioID uint64) (boo
 	var total int
 	erro := repositorio.db.QueryRow(`
 		select count(*) from publicacoes p inner join usuarios u on u.id = p.autor_id
-		where p.id = ? and (u.privado = 0 or u.id = ?)`, publicacaoID, usuarioID).Scan(&total)
+		where p.id = ? and (u.privado = 0 or u.id = ?)
+		and not exists (select 1 from publicacoes_felas pf where pf.publicacao_id = p.id)`, publicacaoID, usuarioID).Scan(&total)
 	return total > 0, erro
 }
 
@@ -93,12 +94,12 @@ func (repositorio Publicacoes) AnexarRepostagens(publicacoes []modelos.Publicaca
 		select r.publicacao_id, o.id, o.autor_id, u.nick, `+colunaFotoVersao+`, o.titulo, o.conteudo, o.criadoEm,
 			(select count(*) from imagens_publicacoes where publicacao_id = o.id)
 				+ (select count(*) from imagens_extras_publicacoes where publicacao_id = o.id),
-			`+postVisivel+`
+			`+strings.ReplaceAll(postVisivel, "p.id", "o.id")+`
 		from reposts r
 		inner join publicacoes o on o.id = r.original_id
 		inner join usuarios u on u.id = o.autor_id
 		left join fotos_usuarios f on f.usuario_id = u.id
-		where r.publicacao_id in (`+marcadores+`)`, append([]interface{}{visitanteID, visitanteID}, ids...)...)
+		where r.publicacao_id in (`+marcadores+`)`, append([]interface{}{visitanteID, visitanteID, visitanteID, visitanteID}, ids...)...)
 	if erro != nil {
 		return erro
 	}
