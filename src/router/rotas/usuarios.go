@@ -6,6 +6,9 @@ import (
 )
 
 var rotasUsuarios = []Rota{
+	{URI: "/privacidade/curtidas", Metodo: http.MethodGet, Funcao: controllers.PrivacidadeCurtidas, RequerAutenticacao: true},
+	{URI: "/privacidade/curtidas", Metodo: http.MethodPut, Funcao: controllers.PrivacidadeCurtidas, RequerAutenticacao: true},
+	{URI: "/usuarios/{usuarioId}/curtidas", Metodo: http.MethodGet, Funcao: controllers.CurtidasDoPerfil, RequerAutenticacao: true},
 	{URI: "/privacidade/interacoes", Metodo: http.MethodGet, Funcao: controllers.PreferenciasDePrivacidade, RequerAutenticacao: true},
 	{URI: "/privacidade/interacoes", Metodo: http.MethodPut, Funcao: controllers.PreferenciasDePrivacidade, RequerAutenticacao: true},
 	{URI: "/mencoes/visibilidade", Metodo: http.MethodPost, Funcao: controllers.VisibilidadeDasMencoes, RequerAutenticacao: true},

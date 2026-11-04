@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"orby/api/src/autenticacao"
 	"orby/api/src/banco"
 	"orby/api/src/repositorios"
@@ -12,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/gorilla/mux"
@@ -31,6 +33,24 @@ func PesquisarPublicacoes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	termo := strings.TrimSpace(r.URL.Query().Get("q"))
+	autor := strings.TrimPrefix(strings.TrimSpace(r.URL.Query().Get("autor")), "@")
+	inicio, fim := r.URL.Query().Get("inicio"), r.URL.Query().Get("fim")
+	if utf8.RuneCountInString(autor) > 50 {
+		respostas.Erro(w, http.StatusBadRequest, errors.New("O nick deve ter no máximo 50 caracteres"))
+		return
+	}
+	for _, data := range []string{inicio, fim} {
+		if data != "" {
+			if _, erro := time.Parse("2006-01-02", data); erro != nil {
+				respostas.Erro(w, http.StatusBadRequest, errors.New("Data inválida"))
+				return
+			}
+		}
+	}
+	if inicio != "" && fim != "" && inicio > fim {
+		respostas.Erro(w, http.StatusBadRequest, errors.New("A data inicial deve ser anterior à final"))
+		return
+	}
 	hashtag := strings.HasPrefix(termo, "#")
 	if hashtag {
 		termo = strings.TrimPrefix(termo, "#")
@@ -38,7 +58,7 @@ func PesquisarPublicacoes(w http.ResponseWriter, r *http.Request) {
 			respostas.Erro(w, http.StatusBadRequest, errors.New("Hashtag inválida"))
 			return
 		}
-	} else if utf8.RuneCountInString(termo) < 2 || utf8.RuneCountInString(termo) > 100 {
+	} else if (termo != "" && utf8.RuneCountInString(termo) < 2) || utf8.RuneCountInString(termo) > 100 || (termo == "" && autor == "" && inicio == "" && fim == "") {
 		respostas.Erro(w, http.StatusBadRequest, errors.New("A busca deve ter entre 2 e 100 caracteres"))
 		return
 	}
@@ -57,7 +77,7 @@ func PesquisarPublicacoes(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
-	publicacoes, erro := repositorio.Pesquisar(usuarioID, termo, hashtag, r.URL.Query().Get("ordem"), limite, deslocamento)
+	publicacoes, erro := repositorio.PesquisarComFiltros(usuarioID, termo, hashtag, r.URL.Query().Get("ordem"), autor, inicio, fim, limite, deslocamento)
 	if erro == nil {
 		erro = repositorio.AnexarRepostagens(publicacoes, usuarioID)
 	}
@@ -140,7 +160,13 @@ func AdicionarImagemDaPublicacao(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if erro = repositorio.AdicionarImagem(publicacaoID, tipo, dados); erro != nil {
+	descricao, erro := url.PathUnescape(r.Header.Get("X-Orby-Descricao"))
+	if erro != nil || !utf8.ValidString(descricao) || utf8.RuneCountInString(descricao) > 500 {
+		respostas.Erro(w, http.StatusBadRequest, errors.New("A descrição da imagem deve ter no máximo 500 caracteres"))
+		return
+	}
+	descricao = strings.TrimSpace(descricao)
+	if erro = repositorio.AdicionarImagemComDescricao(publicacaoID, tipo, dados, descricao); erro != nil {
 		if errors.Is(erro, repositorios.ErrLimiteDeImagens) {
 			respostas.Erro(w, http.StatusConflict, erro)
 			return

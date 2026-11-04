@@ -29,6 +29,11 @@ func (repositorio Publicacoes) ContarImagens(publicacaoID uint64) (int, error) {
 
 // AdicionarImagem anexa uma imagem na próxima posição livre
 func (repositorio Publicacoes) AdicionarImagem(publicacaoID uint64, tipo string, dados []byte) error {
+	return repositorio.AdicionarImagemComDescricao(publicacaoID, tipo, dados, "")
+}
+
+// AdicionarImagemComDescricao anexa uma imagem e seu texto alternativo.
+func (repositorio Publicacoes) AdicionarImagemComDescricao(publicacaoID uint64, tipo string, dados []byte, descricao string) error {
 	total, erro := repositorio.ContarImagens(publicacaoID)
 	if erro != nil {
 		return erro
@@ -38,11 +43,11 @@ func (repositorio Publicacoes) AdicionarImagem(publicacaoID uint64, tipo string,
 	}
 
 	if total == 0 {
-		return repositorio.gravarPrincipal(publicacaoID, tipo, dados)
+		return repositorio.gravarPrincipal(publicacaoID, tipo, dados, descricao)
 	}
 
 	resultado, erro := repositorio.db.Exec(
-		"insert into imagens_extras_publicacoes (publicacao_id, tipo) values (?, ?)", publicacaoID, tipo)
+		"insert into imagens_extras_publicacoes (publicacao_id, tipo, descricao) values (?, ?, ?)", publicacaoID, tipo, descricao)
 	if erro != nil {
 		return erro
 	}
@@ -57,12 +62,12 @@ func (repositorio Publicacoes) AdicionarImagem(publicacaoID uint64, tipo string,
 	return nil
 }
 
-func (repositorio Publicacoes) gravarPrincipal(publicacaoID uint64, tipo string, dados []byte) error {
+func (repositorio Publicacoes) gravarPrincipal(publicacaoID uint64, tipo string, dados []byte, descricao string) error {
 	if erro := midia.Gravar(midia.Publicacoes, publicacaoID, dados); erro != nil {
 		return erro
 	}
 	_, erro := repositorio.db.Exec(
-		"replace into imagens_publicacoes (publicacao_id, tipo) values (?, ?)", publicacaoID, tipo)
+		"replace into imagens_publicacoes (publicacao_id, tipo, descricao) values (?, ?, ?)", publicacaoID, tipo, descricao)
 	return erro
 }
 
@@ -74,6 +79,27 @@ func (repositorio Publicacoes) extraNaPosicao(publicacaoID uint64, posicao int) 
 		"select id, tipo from imagens_extras_publicacoes where publicacao_id = ? order by id limit 1 offset ?",
 		publicacaoID, posicao-1).Scan(&id, &tipo)
 	return id, tipo, erro
+}
+
+// AtualizarDescricaoImagem altera o texto alternativo sem modificar a imagem.
+func (repositorio Publicacoes) AtualizarDescricaoImagem(publicacaoID uint64, posicao int, descricao string) error {
+	if posicao < 0 || posicao >= MaximoDeImagens {
+		return sql.ErrNoRows
+	}
+	if posicao == 0 {
+		var id uint64
+		if erro := repositorio.db.QueryRow("select publicacao_id from imagens_publicacoes where publicacao_id = ?", publicacaoID).Scan(&id); erro != nil {
+			return erro
+		}
+		_, erro := repositorio.db.Exec("update imagens_publicacoes set descricao = ? where publicacao_id = ?", descricao, id)
+		return erro
+	}
+	id, _, erro := repositorio.extraNaPosicao(publicacaoID, posicao)
+	if erro != nil {
+		return erro
+	}
+	_, erro = repositorio.db.Exec("update imagens_extras_publicacoes set descricao = ? where id = ?", descricao, id)
+	return erro
 }
 
 // BuscarImagem devolve o tipo e os bytes da imagem na posição; sql.ErrNoRows quando não existe
@@ -141,7 +167,11 @@ func (repositorio Publicacoes) RemoverImagem(publicacaoID uint64, posicao int) e
 	if erro != nil {
 		return erro
 	}
-	if erro = repositorio.gravarPrincipal(publicacaoID, tipo, dados); erro != nil {
+	var descricao string
+	if erro = repositorio.db.QueryRow("select descricao from imagens_extras_publicacoes where id = ?", id).Scan(&descricao); erro != nil {
+		return erro
+	}
+	if erro = repositorio.gravarPrincipal(publicacaoID, tipo, dados, descricao); erro != nil {
 		return erro
 	}
 	if _, erro = repositorio.db.Exec("delete from imagens_extras_publicacoes where id = ?", id); erro != nil {
@@ -179,27 +209,42 @@ func (repositorio Publicacoes) removerArquivosDeImagens(publicacaoID uint64, ext
 }
 
 // anexarImagens preenche Imagens (quantidade) em cada publicação
-func (repositorio Publicacoes) anexarImagens(publicacoes []modelos.Publicacao, posicoes map[uint64]int, marcadores string, ids []interface{}) error {
-	for i := range publicacoes {
-		if publicacoes[i].TemImagem {
-			publicacoes[i].Imagens = 1
-		}
+func (repositorio Publicacoes) descricoesDeImagens(ids []interface{}) (map[uint64][]string, error) {
+	descricoes := make(map[uint64][]string)
+	if len(ids) == 0 {
+		return descricoes, nil
 	}
+	marcadores := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	argumentos := append(append([]interface{}{}, ids...), ids...)
+	linhas, erro := repositorio.db.Query(`
+		select publicacao_id, descricao from (
+			select publicacao_id, descricao, 0 as ordem, 0 as imagem_id from imagens_publicacoes where publicacao_id in (`+marcadores+`)
+			union all
+			select publicacao_id, descricao, 1 as ordem, id as imagem_id from imagens_extras_publicacoes where publicacao_id in (`+marcadores+`)
+		) imagens order by publicacao_id, ordem, imagem_id`, argumentos...)
+	if erro != nil {
+		return nil, erro
+	}
+	defer linhas.Close()
+	for linhas.Next() {
+		var id uint64
+		var descricao string
+		if erro = linhas.Scan(&id, &descricao); erro != nil {
+			return nil, erro
+		}
+		descricoes[id] = append(descricoes[id], descricao)
+	}
+	return descricoes, linhas.Err()
+}
 
-	linhas, erro := repositorio.db.Query(
-		"select publicacao_id, count(*) from imagens_extras_publicacoes where publicacao_id in ("+strings.TrimSpace(marcadores)+") group by publicacao_id", ids...)
+func (repositorio Publicacoes) anexarImagens(publicacoes []modelos.Publicacao, ids []interface{}) error {
+	descricoes, erro := repositorio.descricoesDeImagens(ids)
 	if erro != nil {
 		return erro
 	}
-	defer linhas.Close()
-
-	for linhas.Next() {
-		var id uint64
-		var extras int
-		if erro = linhas.Scan(&id, &extras); erro != nil {
-			return erro
-		}
-		publicacoes[posicoes[id]].Imagens += extras
+	for i := range publicacoes {
+		publicacoes[i].DescricoesImagens = descricoes[publicacoes[i].ID]
+		publicacoes[i].Imagens = len(publicacoes[i].DescricoesImagens)
 	}
-	return linhas.Err()
+	return nil
 }

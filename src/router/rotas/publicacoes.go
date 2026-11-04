@@ -6,6 +6,16 @@ import (
 )
 
 var rotasPublicacoes = []Rota{
+	{URI: "/publicacoes/{publicacaoId}/reacoes", Metodo: http.MethodGet, Funcao: controllers.ReacoesPublicacao, RequerAutenticacao: true},
+	{URI: "/publicacoes/{publicacaoId}/reacoes", Metodo: http.MethodPut, Funcao: controllers.ReacoesPublicacao, RequerAutenticacao: true},
+	{URI: "/pastas", Metodo: http.MethodGet, Funcao: controllers.ListarPastas, RequerAutenticacao: true},
+	{URI: "/pastas", Metodo: http.MethodPost, Funcao: controllers.CriarPasta, RequerAutenticacao: true},
+	{URI: "/pastas/{pastaId}", Metodo: http.MethodPut, Funcao: controllers.RenomearPasta, RequerAutenticacao: true},
+	{URI: "/pastas/{pastaId}", Metodo: http.MethodDelete, Funcao: controllers.ExcluirPasta, RequerAutenticacao: true},
+	{URI: "/publicacoes/{publicacaoId}/pastas", Metodo: http.MethodGet, Funcao: controllers.PastasDaPublicacao, RequerAutenticacao: true},
+	{URI: "/publicacoes/{publicacaoId}/pastas", Metodo: http.MethodPost, Funcao: controllers.PastasDaPublicacao, RequerAutenticacao: true},
+	{URI: "/publicacoes/{publicacaoId}/pastas", Metodo: http.MethodPut, Funcao: controllers.PastasDaPublicacao, RequerAutenticacao: true},
+	{URI: "/publicacoes/{publicacaoId}/enquete/{opcaoId}/votar", Metodo: http.MethodPost, Funcao: controllers.VotarEnquete, RequerAutenticacao: true},
 	{URI: "/publicacoes/salvas", Metodo: http.MethodGet, Funcao: controllers.BuscarPublicacoesSalvas, RequerAutenticacao: true},
 	{URI: "/publicacoes/{publicacaoId}/salvar", Metodo: http.MethodPost, Funcao: controllers.SalvarPublicacao, RequerAutenticacao: true},
 	{URI: "/publicacoes/{publicacaoId}/salvar", Metodo: http.MethodDelete, Funcao: controllers.RemoverPublicacaoSalva, RequerAutenticacao: true},
@@ -33,6 +43,7 @@ var rotasPublicacoes = []Rota{
 		LimiteCorpo:        controllers.LimiteImagemPublicacao + 1024,
 	},
 	{URI: "/publicacoes/{publicacaoId}/imagens/{posicao}", Metodo: http.MethodDelete, Funcao: controllers.RemoverImagemDaPublicacao, RequerAutenticacao: true},
+	{URI: "/publicacoes/{publicacaoId}/imagens/{posicao}/descricao", Metodo: http.MethodPut, Funcao: controllers.AtualizarDescricaoDaImagem, RequerAutenticacao: true},
 
 	{
 		URI:                "/publicacoes",

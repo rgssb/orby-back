@@ -76,6 +76,15 @@ func BuscarPublicacoesSalvas(w http.ResponseWriter, r *http.Request) {
 		limite = 50
 	}
 	deslocamento, _ := strconv.ParseUint(r.URL.Query().Get("deslocamento"), 10, 64)
+	var pastaID uint64
+	if valor := r.URL.Query().Get("pasta"); valor != "" {
+		id, erro := strconv.ParseUint(valor, 10, 64)
+		if erro != nil || id == 0 {
+			respostas.Erro(w, http.StatusBadRequest, errors.New("Pasta inválida"))
+			return
+		}
+		pastaID = id
+	}
 
 	db, erro := banco.Conectar()
 	if erro != nil {
@@ -85,7 +94,18 @@ func BuscarPublicacoesSalvas(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
-	publicacoes, erro := repositorio.BuscarSalvos(eu, limite, deslocamento)
+	if pastaID != 0 {
+		existe, erro := repositorio.PastaExiste(eu, pastaID)
+		if erro != nil {
+			respostas.Erro(w, http.StatusInternalServerError, erro)
+			return
+		}
+		if !existe {
+			respostas.Erro(w, http.StatusNotFound, repositorios.ErrPastaNaoEncontrada)
+			return
+		}
+	}
+	publicacoes, erro := repositorio.BuscarSalvosNaPasta(eu, pastaID, limite, deslocamento)
 	if erro == nil {
 		erro = repositorio.AnexarRepostagens(publicacoes, eu)
 	}

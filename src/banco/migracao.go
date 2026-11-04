@@ -45,6 +45,27 @@ func Migrar() error {
 			publicacao_id int not null primary key,
 			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS enquetes(
+			publicacao_id int not null primary key,
+			titulo varchar(150) not null default '',
+			encerra_em bigint null,
+			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS opcoes_enquetes(
+			id int auto_increment primary key,
+			publicacao_id int not null,
+			texto varchar(140) not null,
+			FOREIGN KEY (publicacao_id) REFERENCES enquetes(publicacao_id) ON DELETE CASCADE,
+			UNIQUE KEY (publicacao_id, id)
+		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS votos_enquetes(
+			publicacao_id int not null,
+			usuario_id int not null,
+			opcao_id int not null,
+			PRIMARY KEY (publicacao_id, usuario_id),
+			FOREIGN KEY (publicacao_id, opcao_id) REFERENCES opcoes_enquetes(publicacao_id, id) ON DELETE CASCADE,
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
 		`CREATE TABLE IF NOT EXISTS acessos_moderacao(
 			id bigint auto_increment primary key,
 			admin_id int null,
@@ -97,6 +118,22 @@ func Migrar() error {
 			comentario_id int not null,
 			usuario_id int not null,
 			PRIMARY KEY (comentario_id, usuario_id),
+			FOREIGN KEY (comentario_id) REFERENCES comentarios(id) ON DELETE CASCADE,
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS reacoes_publicacoes(
+			publicacao_id int not null,
+			usuario_id int not null,
+			emoji varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin not null,
+			PRIMARY KEY (publicacao_id, usuario_id, emoji),
+			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE,
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS reacoes_comentarios(
+			comentario_id int not null,
+			usuario_id int not null,
+			emoji varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin not null,
+			PRIMARY KEY (comentario_id, usuario_id, emoji),
 			FOREIGN KEY (comentario_id) REFERENCES comentarios(id) ON DELETE CASCADE,
 			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
@@ -265,6 +302,21 @@ func Migrar() error {
 			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
 			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS pastas_salvos(
+			id int auto_increment primary key,
+			usuario_id int not null,
+			nome varchar(80) not null,
+			UNIQUE KEY (id, usuario_id),
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS pastas_publicacoes(
+			pasta_id int not null,
+			usuario_id int not null,
+			publicacao_id int not null,
+			PRIMARY KEY (pasta_id, publicacao_id),
+			FOREIGN KEY (pasta_id, usuario_id) REFERENCES pastas_salvos(id, usuario_id) ON DELETE CASCADE,
+			FOREIGN KEY (usuario_id, publicacao_id) REFERENCES salvos(usuario_id, publicacao_id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
 
 		`CREATE TABLE IF NOT EXISTS pedidos_seguir(
 			solicitante_id int not null,
@@ -300,6 +352,16 @@ func Migrar() error {
 		}
 	}
 
+	if erro = garantirColuna(db, "enquetes", "titulo", "varchar(150) not null default ''"); erro != nil {
+		return erro
+	}
+
+	for _, tabela := range []string{"imagens_publicacoes", "imagens_extras_publicacoes"} {
+		if erro = garantirColuna(db, tabela, "descricao", "varchar(500) not null default ''"); erro != nil {
+			return erro
+		}
+	}
+
 	if erro = migrarUnicidadeDeDenuncias(db); erro != nil {
 		return fmt.Errorf("migracao de denuncias: %w", erro)
 	}
@@ -324,6 +386,9 @@ func Migrar() error {
 		return erro
 	}
 	if erro = garantirColuna(db, "usuarios", "privado", "tinyint not null default 0"); erro != nil {
+		return erro
+	}
+	if erro = garantirColuna(db, "usuarios", "curtidas_publicas", "tinyint not null default 0"); erro != nil {
 		return erro
 	}
 	existia, erro := colunaExiste(db, "usuarios", "email_verificado_em")
@@ -409,6 +474,7 @@ var tabelasBase = []string{
 		senha varchar(555) not null,
 		bio varchar(160) not null default '',
 		privado tinyint not null default 0,
+		curtidas_publicas tinyint not null default 0,
 		termos_aceitos_em timestamp null default null,
 		email_verificado_em timestamp null default null,
 		criadoEm timestamp default current_timestamp()

@@ -67,7 +67,10 @@ func (repositorio Publicacoes) AnexarRepostagens(publicacoes []modelos.Publicaca
 	}
 	marcadores := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
 
-	if erro := repositorio.anexarImagens(publicacoes, posicoes, marcadores, ids); erro != nil {
+	if erro := repositorio.anexarImagens(publicacoes, ids); erro != nil {
+		return erro
+	}
+	if erro := repositorio.anexarEnquetes(publicacoes, visitanteID); erro != nil {
 		return erro
 	}
 
@@ -104,6 +107,7 @@ func (repositorio Publicacoes) AnexarRepostagens(publicacoes []modelos.Publicaca
 		return erro
 	}
 	defer linhas.Close()
+	var originais []interface{}
 	for linhas.Next() {
 		var repostID uint64
 		var original modelos.PublicacaoOriginal
@@ -114,8 +118,24 @@ func (repositorio Publicacoes) AnexarRepostagens(publicacoes []modelos.Publicaca
 		}
 		if !visivel {
 			original = modelos.PublicacaoOriginal{ID: original.ID, Indisponivel: true}
+		} else if original.Imagens > 0 {
+			originais = append(originais, original.ID)
 		}
 		publicacoes[posicoes[repostID]].RepostDe = &original
 	}
-	return linhas.Err()
+	erro = linhas.Err()
+	linhas.Close()
+	if erro != nil {
+		return erro
+	}
+	descricoes, erro := repositorio.descricoesDeImagens(originais)
+	if erro != nil {
+		return erro
+	}
+	for i := range publicacoes {
+		if original := publicacoes[i].RepostDe; original != nil && !original.Indisponivel {
+			original.DescricoesImagens = descricoes[original.ID]
+		}
+	}
+	return nil
 }

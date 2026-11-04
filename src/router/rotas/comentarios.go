@@ -6,6 +6,8 @@ import (
 )
 
 var rotasComentarios = []Rota{
+	{URI: "/comentarios/{comentarioId}/reacoes", Metodo: http.MethodGet, Funcao: controllers.ReacoesComentario, RequerAutenticacao: true},
+	{URI: "/comentarios/{comentarioId}/reacoes", Metodo: http.MethodPut, Funcao: controllers.ReacoesComentario, RequerAutenticacao: true},
 	{
 		URI:                "/publicacoes/{publicacaoId}/comentarios",
 		Metodo:             http.MethodGet,

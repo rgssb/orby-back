@@ -2,6 +2,11 @@ CREATE DATABASE IF NOT EXISTS orby;
 USE orby;
 
 DROP TABLE IF EXISTS pedidos_seguir;
+DROP TABLE IF EXISTS pastas_publicacoes;
+DROP TABLE IF EXISTS pastas_salvos;
+DROP TABLE IF EXISTS votos_enquetes;
+DROP TABLE IF EXISTS opcoes_enquetes;
+DROP TABLE IF EXISTS enquetes;
 DROP TABLE IF EXISTS salvos;
 DROP TABLE IF EXISTS fotos_grupos;
 DROP TABLE IF EXISTS grupo_mensagens;
@@ -14,6 +19,8 @@ DROP TABLE IF EXISTS notificacoes;
 DROP TABLE IF EXISTS verificacoes_email;
 DROP TABLE IF EXISTS redefinicoes_senha;
 DROP TABLE IF EXISTS curtidas_comentarios;
+DROP TABLE IF EXISTS reacoes_comentarios;
+DROP TABLE IF EXISTS reacoes_publicacoes;
 DROP TABLE IF EXISTS comentarios;
 DROP TABLE IF EXISTS mensagens;
 DROP TABLE IF EXISTS reposts;
@@ -43,6 +50,7 @@ CREATE TABLE usuarios(
     senha varchar(555) not null,
     bio varchar(160) not null default '',
     privado tinyint not null default 0,
+    curtidas_publicas tinyint not null default 0,
     admin tinyint not null default 0,
     suspenso_em timestamp null default null,
     termos_aceitos_em timestamp null default null,
@@ -163,6 +171,24 @@ CREATE TABLE curtidas_comentarios(
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 )ENGINE=INNODB;
 
+CREATE TABLE reacoes_publicacoes(
+    publicacao_id int not null,
+    usuario_id int not null,
+    emoji varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin not null,
+    PRIMARY KEY (publicacao_id, usuario_id, emoji),
+    FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+)ENGINE=INNODB;
+
+CREATE TABLE reacoes_comentarios(
+    comentario_id int not null,
+    usuario_id int not null,
+    emoji varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin not null,
+    PRIMARY KEY (comentario_id, usuario_id, emoji),
+    FOREIGN KEY (comentario_id) REFERENCES comentarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+)ENGINE=INNODB;
+
 CREATE TABLE verificacoes_email(
     id int auto_increment primary key,
     usuario_id int not null,
@@ -222,6 +248,7 @@ CREATE TABLE notificacoes(
 CREATE TABLE imagens_publicacoes(
     publicacao_id int not null primary key,
     tipo varchar(30) not null,
+    descricao varchar(500) not null default '',
     FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
 )ENGINE=INNODB;
 
@@ -230,6 +257,7 @@ CREATE TABLE imagens_extras_publicacoes(
     id int auto_increment primary key,
     publicacao_id int not null,
     tipo varchar(30) not null,
+    descricao varchar(500) not null default '',
     FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE,
     INDEX idx_imagens_extras_publicacao (publicacao_id, id)
 )ENGINE=INNODB;
@@ -374,6 +402,47 @@ CREATE TABLE salvos(
     PRIMARY KEY (usuario_id, publicacao_id),
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE pastas_salvos(
+    id int auto_increment primary key,
+    usuario_id int not null,
+    nome varchar(80) not null,
+    UNIQUE KEY (id, usuario_id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE pastas_publicacoes(
+    pasta_id int not null,
+    usuario_id int not null,
+    publicacao_id int not null,
+    PRIMARY KEY (pasta_id, publicacao_id),
+    FOREIGN KEY (pasta_id, usuario_id) REFERENCES pastas_salvos(id, usuario_id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id, publicacao_id) REFERENCES salvos(usuario_id, publicacao_id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE enquetes(
+    publicacao_id int not null primary key,
+    titulo varchar(150) not null default '',
+    encerra_em bigint null,
+    FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE opcoes_enquetes(
+    id int auto_increment primary key,
+    publicacao_id int not null,
+    texto varchar(140) not null,
+    FOREIGN KEY (publicacao_id) REFERENCES enquetes(publicacao_id) ON DELETE CASCADE,
+    UNIQUE KEY (publicacao_id, id)
+) ENGINE=INNODB;
+
+CREATE TABLE votos_enquetes(
+    publicacao_id int not null,
+    usuario_id int not null,
+    opcao_id int not null,
+    PRIMARY KEY (publicacao_id, usuario_id),
+    FOREIGN KEY (publicacao_id, opcao_id) REFERENCES opcoes_enquetes(publicacao_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=INNODB;
 
 CREATE TABLE pedidos_seguir(

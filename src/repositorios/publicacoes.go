@@ -50,6 +50,20 @@ func (repositorio *Publicacoes) Criar(publicacao modelos.Publicacao) (uint64, er
 			return 0, erro
 		}
 	}
+	if publicacao.Enquete != nil {
+		var encerraEm interface{}
+		if publicacao.Enquete.EncerraEm != nil {
+			encerraEm = publicacao.Enquete.EncerraEm.Unix()
+		}
+		if _, erro = transacao.Exec("insert into enquetes (publicacao_id, titulo, encerra_em) values (?, ?, ?)", ultimoID, publicacao.Enquete.Titulo, encerraEm); erro != nil {
+			return 0, erro
+		}
+		for _, opcao := range publicacao.Enquete.Opcoes {
+			if _, erro = transacao.Exec("insert into opcoes_enquetes (publicacao_id, texto) values (?, ?)", ultimoID, opcao.Texto); erro != nil {
+				return 0, erro
+			}
+		}
+	}
 	if erro = transacao.Commit(); erro != nil {
 		return 0, erro
 	}
@@ -387,17 +401,34 @@ func (repositorio Publicacoes) alterarCurtida(publicacaoID, usuarioID uint64, cu
 // Pesquisar procura publicacoes por texto (titulo ou conteudo) ou, quando hashtag e verdadeiro,
 // pela hashtag exata (#tag nao casa com #tagmaior).
 func (repositorio Publicacoes) Pesquisar(viewerID uint64, termo string, hashtag bool, ordem string, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
-	var filtro string
+	return repositorio.PesquisarComFiltros(viewerID, termo, hashtag, ordem, "", "", "", limite, deslocamento)
+}
+
+// PesquisarComFiltros restringe os resultados por nick e por datas inclusivas.
+func (repositorio Publicacoes) PesquisarComFiltros(viewerID uint64, termo string, hashtag bool, ordem, autor, inicio, fim string, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
+	filtro := "1 = 1"
 	argumentos := []interface{}{viewerID, viewerID}
 
 	if hashtag {
 		filtro = "(p.conteudo regexp ? or p.titulo regexp ?)"
 		expressao := `(^|[^[:alnum:]_])#` + regexp.QuoteMeta(termo) + `($|[^[:alnum:]_])`
 		argumentos = append(argumentos, expressao, expressao)
-	} else {
+	} else if termo != "" {
 		filtro = "(p.titulo like ? or p.conteudo like ?)"
 		padrao := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(termo) + "%"
 		argumentos = append(argumentos, padrao, padrao)
+	}
+	if autor != "" {
+		filtro += " and u.nick = ?"
+		argumentos = append(argumentos, autor)
+	}
+	if inicio != "" {
+		filtro += " and p.criadoEm >= ?"
+		argumentos = append(argumentos, inicio)
+	}
+	if fim != "" {
+		filtro += " and p.criadoEm < date_add(?, interval 1 day)"
+		argumentos = append(argumentos, fim)
 	}
 	argumentos = append(argumentos, viewerID, viewerID, viewerID, viewerID, limite, deslocamento)
 

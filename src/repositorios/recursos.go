@@ -20,6 +20,10 @@ func (repositorio Publicacoes) RemoverSalvo(usuarioID, publicacaoID uint64) erro
 
 // BuscarSalvos traz as publicações salvas pelo usuário, da mais recentemente salva para a mais antiga
 func (repositorio Publicacoes) BuscarSalvos(usuarioID, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
+	return repositorio.BuscarSalvosNaPasta(usuarioID, 0, limite, deslocamento)
+}
+
+func (repositorio Publicacoes) BuscarSalvosNaPasta(usuarioID, pastaID, limite, deslocamento uint64) ([]modelos.Publicacao, error) {
 	linhas, erro := repositorio.db.Query(`
 		select p.*, u.nick, u.suspenso_em is not null, `+colunaFotoVersao+`,
 			(select count(*) from comentarios c where c.publicacao_id = p.id),
@@ -31,9 +35,12 @@ func (repositorio Publicacoes) BuscarSalvos(usuarioID, limite, deslocamento uint
 		join publicacoes p on p.id = sv.publicacao_id
 		join usuarios u on u.id = p.autor_id
 		left join fotos_usuarios f on f.usuario_id = u.id
-		where sv.usuario_id = ? and `+postVisivel+`
+		where sv.usuario_id = ? and (? = 0 or exists (
+			select 1 from pastas_publicacoes pp
+			where pp.usuario_id = sv.usuario_id and pp.publicacao_id = sv.publicacao_id and pp.pasta_id = ?
+		)) and `+postVisivel+`
 		order by sv.criadoEm desc, p.id desc
-		limit ? offset ?`, usuarioID, usuarioID, usuarioID, usuarioID, usuarioID, usuarioID, limite, deslocamento)
+		limit ? offset ?`, usuarioID, usuarioID, pastaID, pastaID, usuarioID, usuarioID, usuarioID, usuarioID, limite, deslocamento)
 	if erro != nil {
 		return nil, erro
 	}
