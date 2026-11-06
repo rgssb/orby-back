@@ -50,3 +50,17 @@ ORBY_TEST_DSN='usuario:senha@/orby_test?parseTime=True' go test ./...
 ```
 
 Sem a variável, esses testes são pulados. O CI (`.github/workflows/ci.yml`) sobe um MySQL e roda tudo.
+
+## Dados de demonstração locais
+
+Com o banco local já criado e a API inicializada ao menos uma vez, é possível criar dez contas fictícias (`usuario_1` a `usuario_10`) com publicações, seguidores, Felas, comentários, reações, curtidas, salvos, enquetes, mensagens, grupo, notificações e exemplos de denúncia e bloqueio. Nenhuma conta de exemplo é administradora. As denúncias e os bloqueios envolvem apenas contas fictícias.
+
+O comando é manual, aceita somente banco local e não envia e-mails: as contas são marcadas como verificadas. **Use apenas em desenvolvimento**, pois a senha escolhida será compartilhada por todas elas. Se algum nick ou e-mail já existir, a operação é cancelada sem alterar dados.
+
+```sh
+export ORBY_DEMO_SENHA='<senha para as contas de exemplo>'
+go run ./cmd/dados-exemplo -executar -perfis 'RGBSSB,Boneco de Testes'
+unset ORBY_DEMO_SENHA
+```
+
+Omitir `-perfis` cria apenas interações entre as contas fictícias. Informe nicks existentes para conectá-los aos exemplos; seguimentos e Felas serão criados nos dois sentidos. Os dados ficam no banco dessa máquina: em outro computador com banco próprio, execute o comando novamente com os perfis existentes lá.
