@@ -59,10 +59,10 @@ func TestCriarDadosDeDemonstracao(t *testing.T) {
 	for _, caso := range []struct {
 		caminho, texto string
 	}{
-		{"/publicacoes?aba=seguindo", "Publicação de exemplo 1"},
+		{"/publicacoes?aba=seguindo", "Café e ideias"},
 		{"/publicacoes?aba=felas", "Para meus Felas"},
 		{"/conversas", "usuario_1"},
-		{"/grupos", "Grupo de exemplo"},
+		{"/grupos", "Papo de fim de tarde"},
 		{"/notificacoes", "usuario_1"},
 	} {
 		req := httptest.NewRequest(http.MethodGet, caso.caminho, nil)
@@ -94,5 +94,68 @@ func TestCriarFalhaSemAlterarDados(t *testing.T) {
 	}
 	if err := Criar(db, "senha-de-teste", []string{"ausente"}); err == nil || err == sql.ErrNoRows {
 		t.Fatal("perfil ausente deveria ser informado")
+	}
+}
+func TestAtualizarTextosAntigosPreservaEdicoes(t *testing.T) {
+	db := testes.NovoBanco(t)
+	if err := Criar(db, "senha-de-teste", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`update publicacoes p join usuarios u on u.id = p.autor_id
+			set p.titulo = 'Publicação de exemplo 1', p.conteudo = 'Olá! Sou Usuario1. Esta publicação é um exemplo para conhecer o Orby. #exemplo'
+			where u.nick = 'usuario_1' and p.titulo = 'Café e ideias'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`update publicacoes p join usuarios u on u.id = p.autor_id
+			set p.titulo = 'Publicação de exemplo 2', p.conteudo = 'texto editado'
+			where u.nick = 'usuario_2' and p.titulo = 'Fim de tarde'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`update comentarios c join publicacoes p on p.id = c.publicacao_id join usuarios u on u.id = p.autor_id
+			set c.conteudo = 'Comentário de exemplo: gostei da publicação!'
+			where u.nick = 'usuario_1' and c.parent_id is null`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`delete m from mensagens m join usuarios u on u.id = m.remetente_id where u.nick = 'usuario_2'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`update mensagens m join usuarios u on u.id = m.remetente_id
+			set m.texto = 'Olá! Esta é uma mensagem de exemplo.' where u.nick = 'usuario_1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`delete m from grupo_mensagens m join usuarios u on u.id = m.remetente_id where u.nick = 'usuario_1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`update grupos set nome = 'Grupo de exemplo'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`update grupo_mensagens set texto = 'Olá! Este grupo é um exemplo para testar conversas.'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := AtualizarTextosAntigos(db); err != nil {
+		t.Fatal(err)
+	}
+	if err := AtualizarTextosAntigos(db); err != nil {
+		t.Fatal(err)
+	}
+	var titulo, conteudo, comentario string
+	if err := db.QueryRow(`select p.titulo, p.conteudo, c.conteudo from publicacoes p
+			join usuarios u on u.id = p.autor_id join comentarios c on c.publicacao_id = p.id and c.parent_id is null
+			where u.nick = 'usuario_1' and p.titulo = ?`, assuntos[0].titulo).Scan(&titulo, &conteudo, &comentario); err != nil {
+		t.Fatal(err)
+	}
+	if titulo != assuntos[0].titulo || conteudo != assuntos[0].conteudo || comentario != assuntos[0].comentario {
+		t.Fatalf("textos não atualizados: %q, %q, %q", titulo, conteudo, comentario)
+	}
+	if err := db.QueryRow(`select p.conteudo from publicacoes p join usuarios u on u.id = p.autor_id
+			where u.nick = 'usuario_2' and p.titulo = 'Publicação de exemplo 2'`).Scan(&conteudo); err != nil || conteudo != "texto editado" {
+		t.Fatalf("edição não preservada: %q %v", conteudo, err)
+	}
+	var quantidade int
+	if err := db.QueryRow("select count(*) from mensagens").Scan(&quantidade); err != nil || quantidade != 2 {
+		t.Fatalf("conversa deve ter uma resposta: %d %v", quantidade, err)
+	}
+	if err := db.QueryRow("select count(*) from grupo_mensagens").Scan(&quantidade); err != nil || quantidade != 2 {
+		t.Fatalf("grupo deve ter uma resposta: %d %v", quantidade, err)
 	}
 }

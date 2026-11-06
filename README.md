@@ -64,3 +64,5 @@ unset ORBY_DEMO_SENHA
 ```
 
 Omitir `-perfis` cria apenas interações entre as contas fictícias. Informe nicks existentes para conectá-los aos exemplos; seguimentos e Felas serão criados nos dois sentidos. Os dados ficam no banco dessa máquina: em outro computador com banco próprio, execute o comando novamente com os perfis existentes lá.
+
+Para instalações que usaram o gerador anterior, `go run ./cmd/dados-exemplo -executar -atualizar-textos` substitui apenas textos originais conhecidos das contas fictícias, sem recriar contas ou sobrescrever textos modificados.

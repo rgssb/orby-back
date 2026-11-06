@@ -16,6 +16,7 @@ import (
 
 func main() {
 	executar := flag.Bool("executar", false, "confirma a criação de dados fictícios no banco local")
+	atualizar := flag.Bool("atualizar-textos", false, "substitui somente textos originais conhecidos dos dados antigos")
 	perfis := flag.String("perfis", "", "nicks existentes a conectar, separados por vírgula")
 	flag.Parse()
 	if !*executar {
@@ -23,7 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 	senha := os.Getenv("ORBY_DEMO_SENHA")
-	if senha == "" {
+	if senha == "" && !*atualizar {
 		fmt.Fprintln(os.Stderr, "Defina ORBY_DEMO_SENHA para as contas fictícias.")
 		os.Exit(1)
 	}
@@ -43,6 +44,18 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+	if *atualizar {
+		if *perfis != "" {
+			fmt.Fprintln(os.Stderr, "-perfis não pode ser usado com -atualizar-textos.")
+			os.Exit(1)
+		}
+		if err = demonstracao.AtualizarTextosAntigos(db); err != nil {
+			fmt.Fprintln(os.Stderr, "Não foi possível atualizar os textos:", err)
+			os.Exit(1)
+		}
+		fmt.Println("Textos originais dos dados fictícios atualizados; alterações anteriores foram preservadas.")
+		return
+	}
 	var nicks []string
 	if strings.TrimSpace(*perfis) != "" {
 		for _, perfil := range strings.Split(*perfis, ",") {

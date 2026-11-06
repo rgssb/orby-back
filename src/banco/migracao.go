@@ -45,6 +45,16 @@ func Migrar() error {
 			publicacao_id int not null primary key,
 			FOREIGN KEY (publicacao_id) REFERENCES publicacoes(id) ON DELETE CASCADE
 		) ENGINE=INNODB`,
+		`CREATE TABLE IF NOT EXISTS notas_felas(
+			id bigint auto_increment primary key,
+			perfil_id int not null,
+			autor_id int not null,
+			conteudo varchar(280) not null,
+			criadoEm timestamp not null default current_timestamp(),
+			FOREIGN KEY (perfil_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+			FOREIGN KEY (autor_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+			INDEX idx_notas_felas_perfil (perfil_id, id)
+		) ENGINE=INNODB`,
 		`CREATE TABLE IF NOT EXISTS enquetes(
 			publicacao_id int not null primary key,
 			titulo varchar(150) not null default '',
@@ -389,6 +399,9 @@ func Migrar() error {
 		return erro
 	}
 	if erro = garantirColuna(db, "usuarios", "curtidas_publicas", "tinyint not null default 0"); erro != nil {
+		return erro
+	}
+	if erro = garantirColuna(db, "usuarios", "notas_felas_ativas", "tinyint not null default 1"); erro != nil {
 		return erro
 	}
 	existia, erro := colunaExiste(db, "usuarios", "email_verificado_em")

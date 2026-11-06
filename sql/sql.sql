@@ -36,6 +36,7 @@ DROP TABLE IF EXISTS curtidas_publicacoes;
 DROP TABLE IF EXISTS acessos_moderacao;
 DROP TABLE IF EXISTS acoes_moderacao;
 DROP TABLE IF EXISTS publicacoes_felas;
+DROP TABLE IF EXISTS notas_felas;
 DROP TABLE IF EXISTS felas;
 DROP TABLE IF EXISTS preferencias_privacidade;
 DROP TABLE IF EXISTS publicacoes;
@@ -51,6 +52,7 @@ CREATE TABLE usuarios(
     bio varchar(160) not null default '',
     privado tinyint not null default 0,
     curtidas_publicas tinyint not null default 0,
+    notas_felas_ativas tinyint not null default 1,
     admin tinyint not null default 0,
     suspenso_em timestamp null default null,
     termos_aceitos_em timestamp null default null,
@@ -94,6 +96,17 @@ CREATE TABLE felas(
     PRIMARY KEY (dono_id, membro_id),
     FOREIGN KEY (dono_id) REFERENCES usuarios(id) ON DELETE CASCADE,
     FOREIGN KEY (membro_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE notas_felas(
+    id bigint auto_increment primary key,
+    perfil_id int not null,
+    autor_id int not null,
+    conteudo varchar(280) not null,
+    criadoEm timestamp not null default current_timestamp(),
+    FOREIGN KEY (perfil_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (autor_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    INDEX idx_notas_felas_perfil (perfil_id, id)
 ) ENGINE=INNODB;
 
 CREATE TABLE preferencias_privacidade(

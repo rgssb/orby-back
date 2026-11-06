@@ -9,6 +9,21 @@ import (
 	"orby/api/src/seguranca"
 )
 
+type conversaPost struct{ titulo, conteudo, comentario, resposta string }
+
+var assuntos = []conversaPost{
+	{"Café e ideias", "Comecei o dia com café e uma lista enorme de ideias. Qual é o ritual de vocês para entrar no ritmo?", "Café e uma playlist calma por aqui. Aceito recomendações!", "Boa! Vou montar uma playlist nova para amanhã."},
+	{"Fim de tarde", "O céu estava tão bonito hoje que precisei parar um pouco para olhar. Esses momentos simples fazem diferença.", "Também vi! A luz estava linda depois da chuva.", "Sim! Queria que o pôr do sol durasse mais."},
+	{"Livro da semana", "Terminei um livro que estava na minha lista há meses. Agora estou procurando minha próxima leitura, alguma indicação?", "Tenho uma indicação! Você prefere ficção ou mistério?", "Mistério, sem dúvida. Pode mandar!"},
+	{"Música para trabalhar", "Preciso renovar minha playlist de trabalho. O que vocês ouvem quando precisam se concentrar?", "Música instrumental me ajuda muito. Posso compartilhar algumas faixas.", "Quero sim! Instrumental funciona bem para mim também."},
+	{"Pequenas conquistas", "Hoje consegui terminar uma tarefa que estava adiando havia semanas. Parece pouco, mas foi uma vitória!", "Nada pouco! Essas tarefas pendentes cansam bastante.", "Verdade. A sensação de tirar isso da lista é ótima."},
+	{"Receita improvisada", "Fiz um macarrão com o que tinha na geladeira e ficou melhor do que eu esperava. Adoro quando a improvisação dá certo.", "Agora fiquei com fome. O que você colocou no molho?", "Tomate, alho e um pouco de queijo. Simples e gostoso!"},
+	{"Passeio de fim de semana", "Quero sair para caminhar no fim de semana e conhecer um lugar novo. Alguma sugestão de passeio tranquilo?", "Um parque no começo da manhã é sempre uma boa.", "Gostei! Vou separar um tempo para isso."},
+	{"Ideias para criar", "Estou tentando desenhar um pouco todos os dias, sem me preocupar tanto com o resultado. Está sendo divertido.", "Essa é a melhor parte! O importante é aproveitar o processo.", "Exatamente. Aos poucos a prática vai ficando mais leve."},
+	{"Hora de descansar", "Dia cheio por aqui. Agora só quero uma boa conversa e um tempo longe das notificações.", "Descansar também faz parte. Aproveite a pausa!", "Obrigado! Amanhã continuo com mais energia."},
+	{"Planos para amanhã", "Deixei algumas coisas organizadas para amanhã e já estou me sentindo mais tranquilo. Boa noite, pessoal!", "Boa noite! Começar o dia com tudo organizado ajuda muito.", "Ajuda mesmo. Espero que amanhã seja um dia leve!"},
+}
+
 // Criar adiciona as contas de exemplo e suas interações em uma transação.
 // Perfis existentes só são conectados quando seus nicks são fornecidos.
 func Criar(db *sql.DB, senha string, perfis []string) error {
@@ -64,8 +79,7 @@ func Criar(db *sql.DB, senha string, perfis []string) error {
 			return fmt.Errorf("criar %s: %w", nick, err)
 		}
 		posts[i], err = inserir(tx, `insert into publicacoes (titulo, conteudo, autor_id)
-			values (?, ?, ?)`, fmt.Sprintf("Publicação de exemplo %d", i+1),
-			fmt.Sprintf("Olá! Sou Usuario%d. Esta publicação é um exemplo para conhecer o Orby. #exemplo", i+1), usuarios[i])
+			values (?, ?, ?)`, assuntos[i].titulo, assuntos[i].conteudo, usuarios[i])
 		if err != nil {
 			return fmt.Errorf("criar publicação: %w", err)
 		}
@@ -108,11 +122,11 @@ func Criar(db *sql.DB, senha string, perfis []string) error {
 		if _, err = tx.Exec("update publicacoes set curtidas = curtidas + 1 where id = ?", posts[i]); err != nil {
 			return err
 		}
-		comentario, err := inserir(tx, "insert into comentarios (publicacao_id, autor_id, conteudo) values (?, ?, ?)", posts[i], ator, "Comentário de exemplo: gostei da publicação!")
+		comentario, err := inserir(tx, "insert into comentarios (publicacao_id, autor_id, conteudo) values (?, ?, ?)", posts[i], ator, assuntos[i].comentario)
 		if err != nil {
 			return err
 		}
-		if _, err = tx.Exec("insert into comentarios (publicacao_id, autor_id, conteudo, parent_id) values (?, ?, ?, ?)", posts[i], usuarios[i], "Obrigado! Esta é uma resposta de exemplo.", comentario); err != nil {
+		if _, err = tx.Exec("insert into comentarios (publicacao_id, autor_id, conteudo, parent_id) values (?, ?, ?, ?)", posts[i], usuarios[i], assuntos[i].resposta, comentario); err != nil {
 			return err
 		}
 		if _, err = tx.Exec("insert into curtidas_comentarios (comentario_id, usuario_id) values (?, ?)", comentario, usuarios[i]); err != nil {
@@ -132,38 +146,38 @@ func Criar(db *sql.DB, senha string, perfis []string) error {
 		}
 	}
 
-	felasPost, err := inserir(tx, "insert into publicacoes (titulo, conteudo, autor_id) values (?, ?, ?)", "Para meus Felas", "Esta é uma publicação de exemplo visível para meus Felas.", usuarios[0])
+	felasPost, err := inserir(tx, "insert into publicacoes (titulo, conteudo, autor_id) values (?, ?, ?)", "Para meus Felas", "Passando para agradecer por estarem por perto. Vocês deixam meus dias mais leves!", usuarios[0])
 	if err != nil {
 		return err
 	}
 	if _, err = tx.Exec("insert into publicacoes_felas (publicacao_id) values (?)", felasPost); err != nil {
 		return err
 	}
-	enquete, err := inserir(tx, "insert into publicacoes (titulo, conteudo, autor_id) values (?, ?, ?)", "Enquete de exemplo", "Qual recurso do Orby você mais gosta?", usuarios[1])
+	enquete, err := inserir(tx, "insert into publicacoes (titulo, conteudo, autor_id) values (?, ?, ?)", "Qual é o plano?", "Como vocês preferem passar uma tarde livre?", usuarios[1])
 	if err != nil {
 		return err
 	}
-	if _, err = tx.Exec("insert into enquetes (publicacao_id, titulo) values (?, ?)", enquete, "Escolha uma opção"); err != nil {
+	if _, err = tx.Exec("insert into enquetes (publicacao_id, titulo) values (?, ?)", enquete, "Escolha seu favorito"); err != nil {
 		return err
 	}
-	opcao, err := inserir(tx, "insert into opcoes_enquetes (publicacao_id, texto) values (?, ?)", enquete, "Publicações")
+	opcao, err := inserir(tx, "insert into opcoes_enquetes (publicacao_id, texto) values (?, ?)", enquete, "Passeio ao ar livre")
 	if err != nil {
 		return err
 	}
-	if _, err = tx.Exec("insert into opcoes_enquetes (publicacao_id, texto) values (?, ?)", enquete, "Mensagens"); err != nil {
+	if _, err = tx.Exec("insert into opcoes_enquetes (publicacao_id, texto) values (?, ?)", enquete, "Filme em casa"); err != nil {
 		return err
 	}
 	if _, err = tx.Exec("insert into votos_enquetes (publicacao_id, usuario_id, opcao_id) values (?, ?, ?)", enquete, usuarios[0], opcao); err != nil {
 		return err
 	}
-	repost, err := inserir(tx, "insert into publicacoes (titulo, conteudo, autor_id) values (?, ?, ?)", "", "Repost de exemplo", usuarios[1])
+	repost, err := inserir(tx, "insert into publicacoes (titulo, conteudo, autor_id) values (?, ?, ?)", "", "Café e boas ideias combinam demais!", usuarios[1])
 	if err != nil {
 		return err
 	}
 	if _, err = tx.Exec("insert into reposts (publicacao_id, original_id) values (?, ?)", repost, posts[0]); err != nil {
 		return err
 	}
-	pasta, err := inserir(tx, "insert into pastas_salvos (usuario_id, nome) values (?, ?)", usuarios[1], "Exemplos")
+	pasta, err := inserir(tx, "insert into pastas_salvos (usuario_id, nome) values (?, ?)", usuarios[1], "Para guardar")
 	if err != nil {
 		return err
 	}
@@ -173,7 +187,10 @@ func Criar(db *sql.DB, senha string, perfis []string) error {
 	if err = conversa(tx, usuarios[0], usuarios[1]); err != nil {
 		return err
 	}
-	grupo, err := inserir(tx, "insert into grupos (nome, criador_id) values (?, ?)", "Grupo de exemplo", usuarios[1])
+	if _, err = tx.Exec("insert into mensagens (conversa_id, remetente_id, texto) select id, ?, ? from conversas where usuario_menor = least(?, ?) and usuario_maior = greatest(?, ?)", usuarios[1], "Oi! Tudo bem sim. Vamos marcar aquele café esta semana?", usuarios[0], usuarios[1], usuarios[0], usuarios[1]); err != nil {
+		return err
+	}
+	grupo, err := inserir(tx, "insert into grupos (nome, criador_id) values (?, ?)", "Papo de fim de tarde", usuarios[1])
 	if err != nil {
 		return err
 	}
@@ -182,7 +199,7 @@ func Criar(db *sql.DB, senha string, perfis []string) error {
 			return err
 		}
 	}
-	if _, err = tx.Exec("insert into grupo_mensagens (grupo_id, remetente_id, texto) values (?, ?, ?)", grupo, usuarios[1], "Olá! Este grupo é um exemplo para testar conversas."); err != nil {
+	if _, err = tx.Exec("insert into grupo_mensagens (grupo_id, remetente_id, texto) values (?, ?, ?), (?, ?, ?)", grupo, usuarios[1], "Oi, pessoal! O que vocês acham de marcar um café no fim de semana?", grupo, usuarios[0], "Topo! Sábado à tarde funciona para vocês?"); err != nil {
 		return err
 	}
 	if _, err = tx.Exec("insert into silenciados (silenciador_id, silenciado_id) values (?, ?)", usuarios[6], usuarios[8]); err != nil {
@@ -222,7 +239,7 @@ func conversa(tx *sql.Tx, remetente, destinatario int64) error {
 	if err != nil {
 		return err
 	}
-	mensagem, err := inserir(tx, "insert into mensagens (conversa_id, remetente_id, texto) values (?, ?, ?)", id, remetente, "Olá! Esta é uma mensagem de exemplo.")
+	mensagem, err := inserir(tx, "insert into mensagens (conversa_id, remetente_id, texto) values (?, ?, ?)", id, remetente, "Oi! Como você está? Faz tempo que não conversamos.")
 	if err != nil {
 		return err
 	}
