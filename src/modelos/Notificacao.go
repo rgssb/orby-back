@@ -12,6 +12,7 @@ const (
 	NotificacaoMencao            = "mencao"
 	NotificacaoSeguidor          = "seguidor"
 	NotificacaoPedidoSeguir      = "pedido_seguir"
+	NotificacaoNotaFela          = "nota_fela"
 	NotificacaoPerfilEmAlerta    = "perfil_alerta"
 	NotificacaoPerfilEmRevisao   = "perfil_revisao"
 )

@@ -81,6 +81,21 @@ func PreferenciaNotasFelas(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	db, err := banco.Conectar()
+	if err != nil {
+		respostas.Erro(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+	if r.Method == http.MethodGet {
+		var ativas bool
+		err = db.QueryRow("select notas_felas_ativas from usuarios where id = ?", eu).Scan(&ativas)
+		if tratarErroNotas(w, err) {
+			return
+		}
+		respostas.JSON(w, http.StatusOK, map[string]bool{"ativas": ativas})
+		return
+	}
 	var corpo struct {
 		Ativas *bool `json:"ativas"`
 	}
@@ -88,12 +103,6 @@ func PreferenciaNotasFelas(w http.ResponseWriter, r *http.Request) {
 		respostas.Erro(w, http.StatusBadRequest, errors.New("Preferência inválida"))
 		return
 	}
-	db, err := banco.Conectar()
-	if err != nil {
-		respostas.Erro(w, http.StatusInternalServerError, err)
-		return
-	}
-	defer db.Close()
 	_, err = db.Exec("update usuarios set notas_felas_ativas = ? where id = ?", *corpo.Ativas, eu)
 	if tratarErroNotas(w, err) {
 		return

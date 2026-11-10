@@ -6,6 +6,8 @@ import (
 )
 
 var rotasNotificacoes = []Rota{
+	{URI: "/notificacoes/pausa", Metodo: http.MethodGet, Funcao: controllers.PausaDeNotificacoes, RequerAutenticacao: true},
+	{URI: "/notificacoes/pausa", Metodo: http.MethodPut, Funcao: controllers.PausaDeNotificacoes, RequerAutenticacao: true},
 	{URI: "/admin/usuarios/{usuarioId}/denuncias", Metodo: http.MethodGet, Funcao: controllers.DetalhesDeDenuncias, RequerAutenticacao: true},
 	{URI: "/notificacoes/preferencias", Metodo: http.MethodGet, Funcao: controllers.PreferenciasDeNotificacao, RequerAutenticacao: true},
 	{URI: "/notificacoes/preferencias", Metodo: http.MethodPut, Funcao: controllers.PreferenciasDeNotificacao, RequerAutenticacao: true},

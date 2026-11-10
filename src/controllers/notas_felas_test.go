@@ -4,10 +4,98 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"orby/api/src/eventos"
+	"orby/api/src/modelos"
 	"orby/api/src/repositorios"
 	"orby/api/src/testes"
 	"testing"
 )
+
+func TestNotaEnviaNotificacaoAoDonoEmTempoReal(t *testing.T) {
+	db := testes.NovoBanco(t)
+	dono := testes.CriarUsuario(t, db, "dono", false)
+	autor := testes.CriarUsuario(t, db, "autor", false)
+	outro := testes.CriarUsuario(t, db, "outro", false)
+	if _, err := db.Exec("insert into felas (dono_id, membro_id) values (?, ?)", dono, autor); err != nil {
+		t.Fatal(err)
+	}
+	canal, cancelar := eventos.Assinar(dono)
+	defer cancelar()
+	rota := fmt.Sprintf("/usuarios/%d/notas-felas", dono)
+	if r := chamar(t, outro, http.MethodPost, rota, `{"conteudo":"não autorizado"}`); r.Code != http.StatusNotFound {
+		t.Fatalf("autor não autorizado: %d", r.Code)
+	}
+	select {
+	case e := <-canal:
+		t.Fatalf("evento indevido: %+v", e)
+	default:
+	}
+	for _, conteudo := range []string{"Um recado", "Outro recado"} {
+		if r := chamar(t, autor, http.MethodPost, rota, fmt.Sprintf(`{"conteudo":%q}`, conteudo)); r.Code != http.StatusNoContent {
+			t.Fatalf("criação: %d %s", r.Code, r.Body)
+		}
+		select {
+		case e := <-canal:
+			if e.Tipo != "notificacao" {
+				t.Fatalf("evento inesperado: %+v", e)
+			}
+		default:
+			t.Fatal("notificação em tempo real não enviada")
+		}
+	}
+	r := chamar(t, dono, http.MethodGet, "/notificacoes", "")
+	var lista []modelos.Notificacao
+	if err := json.Unmarshal(r.Body.Bytes(), &lista); err != nil || len(lista) != 2 {
+		t.Fatalf("notificações: %s (%v)", r.Body, err)
+	}
+	for _, n := range lista {
+		if n.Tipo != modelos.NotificacaoNotaFela || n.AtorID != autor || n.PublicacaoID != 0 || n.Lida {
+			t.Fatalf("notificação incorreta: %+v", n)
+		}
+	}
+	if r := chamar(t, outro, http.MethodGet, "/notificacoes", ""); r.Code != http.StatusOK || r.Body.String() != "[]\n" {
+		t.Fatalf("outro usuário não deve receber: %d %s", r.Code, r.Body)
+	}
+	if r := chamar(t, dono, http.MethodPut, "/notificacoes/preferencias", `{"silenciados":["nota_fela"]}`); r.Code != http.StatusNoContent {
+		t.Fatalf("silenciar: %d %s", r.Code, r.Body)
+	}
+	if r := chamar(t, dono, http.MethodGet, "/notificacoes/nao-lidas", ""); r.Body.String() != "{\"total\":0}\n" {
+		t.Fatalf("notificações silenciadas: %s", r.Body)
+	}
+	if r := chamar(t, dono, http.MethodPut, "/notificacoes/preferencias", `{"silenciados":[]}`); r.Code != http.StatusNoContent {
+		t.Fatalf("reativar: %d %s", r.Code, r.Body)
+	}
+	if r := chamar(t, dono, http.MethodGet, "/notificacoes/nao-lidas", ""); r.Body.String() != "{\"total\":2}\n" {
+		t.Fatalf("notificações devem ser preservadas: %s", r.Body)
+	}
+}
+
+func TestNotaNaoEGravadaSeNotificacaoFalhar(t *testing.T) {
+	db := testes.NovoBanco(t)
+	dono := testes.CriarUsuario(t, db, "dono", false)
+	autor := testes.CriarUsuario(t, db, "autor", false)
+	if _, err := db.Exec("insert into felas (dono_id, membro_id) values (?, ?)", dono, autor); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("alter table notificacoes add constraint teste_sem_nota check (tipo <> 'nota_fela')"); err != nil {
+		t.Fatal(err)
+	}
+	canal, cancelar := eventos.Assinar(dono)
+	defer cancelar()
+	rota := fmt.Sprintf("/usuarios/%d/notas-felas", dono)
+	if r := chamar(t, autor, http.MethodPost, rota, `{"conteudo":"recado"}`); r.Code != http.StatusInternalServerError {
+		t.Fatalf("falha deveria cancelar a criação: %d %s", r.Code, r.Body)
+	}
+	var quantidade int
+	if err := db.QueryRow("select count(*) from notas_felas").Scan(&quantidade); err != nil || quantidade != 0 {
+		t.Fatalf("recado não deveria ser gravado: %d %v", quantidade, err)
+	}
+	select {
+	case e := <-canal:
+		t.Fatalf("evento após rollback: %+v", e)
+	default:
+	}
+}
 
 func TestNotasFelasPermissoesEPrivacidade(t *testing.T) {
 	db := testes.NovoBanco(t)

@@ -11,6 +11,10 @@ var expressaoDeMencao = regexp.MustCompile(`(?:^|[^\w@])@([A-Za-z0-9_]{1,50})`)
 
 var publicacaoVisivelNaNotificacao = strings.ReplaceAll(strings.ReplaceAll(postVisivel, "u.", "dono."), "?", "n.usuario_id")
 
+const filtroPausaNotificacoes = ` and (n.tipo not in ('curtida_publicacao', 'curtida_comentario', 'comentario', 'resposta', 'repost', 'mencao', 'seguidor', 'nota_fela')
+	or not exists (select 1 from preferencias_configuracoes pc where pc.usuario_id = n.usuario_id
+		and (pc.pausa_permanente = true or pc.pausa_ate > utc_timestamp())))`
+
 // Notificacoes representa um repositorio de notificacoes
 type Notificacoes struct {
 	db *sql.DB
@@ -167,6 +171,7 @@ func (repositorio Notificacoes) Listar(usuarioID, limite, deslocamento uint64) (
 		left join fotos_usuarios f on f.usuario_id = u.id
 		where n.usuario_id = ?
 		and not exists (select 1 from notificacoes_silenciadas ns where ns.usuario_id = n.usuario_id and ns.tipo = n.tipo)
+		`+filtroPausaNotificacoes+`
 		and (n.publicacao_id is null or (p.id is not null and `+publicacaoVisivelNaNotificacao+`))
 		order by n.id desc
 		limit ? offset ?`, usuarioID, limite, deslocamento,
@@ -200,6 +205,7 @@ func (repositorio Notificacoes) ContarNaoLidas(usuarioID uint64) (uint64, error)
 		left join usuarios dono on dono.id = p.autor_id
 		where n.usuario_id = ? and n.lida = false
 		and not exists (select 1 from notificacoes_silenciadas ns where ns.usuario_id = n.usuario_id and ns.tipo = n.tipo)
+		`+filtroPausaNotificacoes+`
 		and (n.publicacao_id is null or (p.id is not null and `+publicacaoVisivelNaNotificacao+`))`, usuarioID,
 	).Scan(&total)
 	return total, erro
@@ -212,6 +218,7 @@ func (repositorio Notificacoes) MarcarTodasComoLidas(usuarioID uint64) error {
 		left join usuarios dono on dono.id = p.autor_id
 		set n.lida = true where n.usuario_id = ? and n.lida = false
 		and not exists (select 1 from notificacoes_silenciadas ns where ns.usuario_id = n.usuario_id and ns.tipo = n.tipo)
+		`+filtroPausaNotificacoes+`
 		and (n.publicacao_id is null or (p.id is not null and `+publicacaoVisivelNaNotificacao+`))`, usuarioID)
 	return erro
 }

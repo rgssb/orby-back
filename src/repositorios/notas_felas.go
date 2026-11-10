@@ -3,6 +3,8 @@ package repositorios
 import (
 	"database/sql"
 	"errors"
+	"orby/api/src/eventos"
+	"orby/api/src/modelos"
 	"time"
 )
 
@@ -118,7 +120,14 @@ func CriarNotaFela(db *sql.DB, perfil, autor uint64, conteudo string) error {
 	if _, err = tx.Exec("insert into notas_felas (perfil_id, autor_id, conteudo) values (?, ?, ?)", perfil, autor, conteudo); err != nil {
 		return err
 	}
-	return tx.Commit()
+	if _, err = tx.Exec("insert into notificacoes (usuario_id, ator_id, tipo) values (?, ?, ?)", perfil, autor, modelos.NotificacaoNotaFela); err != nil {
+		return err
+	}
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+	eventos.Publicar(perfil, eventos.Evento{Tipo: "notificacao"})
+	return nil
 }
 
 func ExcluirNotaFela(db *sql.DB, id, usuario uint64) error {

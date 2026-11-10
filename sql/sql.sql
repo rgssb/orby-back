@@ -39,6 +39,7 @@ DROP TABLE IF EXISTS publicacoes_felas;
 DROP TABLE IF EXISTS notas_felas;
 DROP TABLE IF EXISTS felas;
 DROP TABLE IF EXISTS preferencias_privacidade;
+DROP TABLE IF EXISTS preferencias_configuracoes;
 DROP TABLE IF EXISTS publicacoes;
 DROP TABLE IF EXISTS seguidores;
 DROP TABLE IF EXISTS usuarios;
@@ -114,6 +115,15 @@ CREATE TABLE preferencias_privacidade(
     mensagens varchar(16) not null default 'todos',
     mencoes varchar(16) not null default 'todos',
     comentarios varchar(16) not null default 'todos',
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=INNODB;
+
+CREATE TABLE preferencias_configuracoes(
+    usuario_id int not null primary key,
+    tamanho_texto varchar(16) not null default 'normal',
+    reduzir_animacoes boolean not null default false,
+    pausa_permanente boolean not null default false,
+    pausa_ate datetime null,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
 ) ENGINE=INNODB;
 

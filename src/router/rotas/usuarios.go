@@ -6,10 +6,17 @@ import (
 )
 
 var rotasUsuarios = []Rota{
+	{URI: "/configuracoes/acessibilidade", Metodo: http.MethodGet, Funcao: controllers.Acessibilidade, RequerAutenticacao: true},
+	{URI: "/configuracoes/acessibilidade", Metodo: http.MethodPut, Funcao: controllers.Acessibilidade, RequerAutenticacao: true},
+	{URI: "/configuracoes/pessoas-restritas", Metodo: http.MethodGet, Funcao: controllers.PessoasRestritas, RequerAutenticacao: true},
+	{URI: "/conta/email", Metodo: http.MethodPut, Funcao: controllers.DadosDaConta, RequerAutenticacao: true},
+	{URI: "/perfil/dados", Metodo: http.MethodPut, Funcao: controllers.DadosDoPerfil, RequerAutenticacao: true},
+	{URI: "/conta/exportar", Metodo: http.MethodPost, Funcao: controllers.ExportarDados, RequerAutenticacao: true},
 	{URI: "/usuarios/{usuarioId}/notas-felas", Metodo: http.MethodGet, Funcao: controllers.NotasFelas, RequerAutenticacao: true},
 	{URI: "/usuarios/{usuarioId}/notas-felas", Metodo: http.MethodPost, Funcao: controllers.NotasFelas, RequerAutenticacao: true},
 	{URI: "/notas-felas/{notaId}", Metodo: http.MethodDelete, Funcao: controllers.ExcluirNotaFela, RequerAutenticacao: true},
 	{URI: "/privacidade/notas-felas", Metodo: http.MethodPut, Funcao: controllers.PreferenciaNotasFelas, RequerAutenticacao: true},
+	{URI: "/privacidade/notas-felas", Metodo: http.MethodGet, Funcao: controllers.PreferenciaNotasFelas, RequerAutenticacao: true},
 	{URI: "/privacidade/curtidas", Metodo: http.MethodGet, Funcao: controllers.PrivacidadeCurtidas, RequerAutenticacao: true},
 	{URI: "/privacidade/curtidas", Metodo: http.MethodPut, Funcao: controllers.PrivacidadeCurtidas, RequerAutenticacao: true},
 	{URI: "/usuarios/{usuarioId}/curtidas", Metodo: http.MethodGet, Funcao: controllers.CurtidasDoPerfil, RequerAutenticacao: true},

@@ -27,6 +27,14 @@ func Migrar() error {
 	}
 
 	comandos := []string{
+		`CREATE TABLE IF NOT EXISTS preferencias_configuracoes(
+			usuario_id int not null primary key,
+			tamanho_texto varchar(16) not null default 'normal',
+			reduzir_animacoes boolean not null default false,
+			pausa_permanente boolean not null default false,
+			pausa_ate datetime null,
+			FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+		) ENGINE=INNODB`,
 		`CREATE TABLE IF NOT EXISTS preferencias_privacidade(
 			usuario_id int not null primary key,
 			mensagens varchar(16) not null default 'todos',

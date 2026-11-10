@@ -15,6 +15,7 @@ var tiposConfiguraveis = map[string]bool{
 	modelos.NotificacaoRepost:            true,
 	modelos.NotificacaoMencao:            true,
 	modelos.NotificacaoSeguidor:          true,
+	modelos.NotificacaoNotaFela:          true,
 }
 
 func (repositorio Notificacoes) TiposSilenciados(usuarioID uint64) ([]string, error) {
